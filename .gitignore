@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Next.js build output
+.next/
+out/
+
+# Production build
+dist/
+
+# Vercel build output
+.vercel/
+
+# Environment variables
+.env
+.env.*.local
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories and files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Testing
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# Optional: ignore socket server build if separate
+server/dist/
+server/*.log
+
+# Optional: Ignore next-auth debug logs
+.next-auth.debug.log
+
+# Optional: Ignore local development SSL certs
+*.pem

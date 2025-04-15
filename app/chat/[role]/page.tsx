@@ -1,0 +1,228 @@
+"use client"
+
+import type React from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
+import { useParams, useRouter } from "next/navigation"
+import Image from "next/image"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Camera,
+  ArrowLeft,
+  MoreVertical,
+  BellOff,
+  Bell,
+  SendHorizontal
+} from "lucide-react"
+import ChatMessage from "@/components/chat-message"
+import ImageViewer from "@/components/image-viewer"
+import { useRealTimeChat } from "@/hooks/use-real-time-chat"
+import ChatBackground from "@/components/chat-background"
+import { cn } from "@/lib/utils"
+
+export default function ChatPage() {
+  const params = useParams()
+  const router = useRouter()
+  const role = params.role as string
+  const otherPerson = role === "akash" ? "divyangini" : "akash"
+
+  const {
+    messages,
+    isTyping,
+    isMuted,
+    setIsMuted,
+    newMessage,
+    setNewMessage,
+    sendMessage,
+    sendImage,
+    markAsSeen,
+    isConnected,
+  } = useRealTimeChat(role, otherPerson)
+
+  const [viewingImage, setViewingImage] = useState<string | null>(null)
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    messagesEndRef.current?.scrollIntoView({ behavior })
+  }, [])
+
+  useEffect(() => {
+    scrollToBottom("auto")
+  }, [messages, scrollToBottom])
+
+  const handleInputFocus = () => {
+    setIsKeyboardOpen(true)
+    setTimeout(() => scrollToBottom('smooth'), 100)
+  }
+
+  const handleInputBlur = () => {
+    setIsKeyboardOpen(false)
+  }
+
+  useEffect(() => {
+    if (!chatContainerRef.current) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const messageId = entry.target.getAttribute("data-message-id")
+            const sender = entry.target.getAttribute("data-sender")
+            if (messageId && sender === otherPerson) {
+              markAsSeen(messageId)
+            }
+          }
+        })
+      },
+      {
+        root: chatContainerRef.current,
+        rootMargin: "0px",
+        threshold: 0.8,
+      }
+    )
+
+    const messageElements = chatContainerRef.current.querySelectorAll(`[data-message-id][data-sender="${otherPerson}"]`)
+    messageElements.forEach((el) => observer.observe(el))
+
+    return () => {
+      messageElements.forEach((el) => observer.unobserve(el))
+    }
+  }, [messages, markAsSeen, otherPerson])
+
+  const handleCameraClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          sendImage(event.target.result.toString())
+        }
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleProfileClick = () => {
+    router.push(`/profile/${otherPerson}`)
+  }
+
+  const handleSendMessage = () => {
+    if (newMessage.trim()) {
+      sendMessage()
+    }
+  }
+
+  return (
+    <div className="flex h-dvh flex-col bg-background">
+      <header className="flex flex-shrink-0 items-center justify-between border-b border-border bg-card p-3 shadow-md">
+        <div className="flex items-center">
+          <Button variant="ghost" size="icon" className="mr-2 text-foreground/80 hover:bg-secondary" onClick={() => router.push("/")}>
+            <ArrowLeft size={24} />
+          </Button>
+          <div className="flex cursor-pointer items-center" onClick={handleProfileClick}>
+            <div className="relative h-10 w-10">
+              <Image
+                src={`https://ui-avatars.com/api/?name=${otherPerson}&background=random&color=fff&size=40`}
+                alt={otherPerson}
+                className="rounded-full object-cover"
+                width={40}
+                height={40}
+              />
+            </div>
+            <div className="ml-3">
+              <h2 className="text-lg font-semibold capitalize text-foreground">{otherPerson}</h2>
+              <p className="text-xs text-muted-foreground">
+                {isTyping ? <span className="italic">typing...</span> : isConnected ? 'online' : 'offline'}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center">
+          <Button variant="ghost" size="icon" className="text-foreground/80 hover:bg-secondary" onClick={() => setIsMuted(!isMuted)}>
+            {isMuted ? <BellOff size={20} className="text-destructive" /> : <Bell size={20} className="text-accent"/>}
+          </Button>
+          <Button variant="ghost" size="icon" className="text-foreground/80 hover:bg-secondary">
+            <MoreVertical size={20} />
+          </Button>
+        </div>
+      </header>
+
+      <div ref={chatContainerRef} className="relative flex-1 overflow-y-auto p-4">
+        <ChatBackground />
+        <div className="relative z-10 space-y-1 pb-2">
+          {messages.map((message) => (
+            <div key={message.id} data-message-id={message.id} data-sender={message.sender}>
+              <ChatMessage message={message} currentUser={role} onImageClick={setViewingImage} />
+            </div>
+          ))}
+          {isTyping && (
+            <div className={`flex justify-start`}>
+              <div className="ml-2 rounded-full bg-secondary px-4 py-2 shadow-md">
+                <div className="flex items-center space-x-1">
+                  <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]"></div>
+                  <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]"></div>
+                  <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground"></div>
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} className="h-1" />
+        </div>
+      </div>
+
+      <div className="flex flex-shrink-0 items-center border-t border-border bg-card p-2 sm:p-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="mr-2 h-11 w-11 flex-shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+          onClick={handleCameraClick}
+        >
+          <Camera size={22} />
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+          />
+        </Button>
+
+        <div className="relative flex-1">
+          <Input
+            ref={inputRef}
+            type="text"
+            placeholder="Message..."
+            className="w-full rounded-full border-border bg-input py-3 pl-4 pr-12 text-base text-foreground placeholder:text-muted-foreground focus:border-ring focus:ring-1 focus:ring-ring"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+            onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
+            autoComplete="off"
+          />
+        </div>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="ml-2 h-12 w-12 flex-shrink-0 rounded-full bg-primary text-primary-foreground transition-colors duration-200 ease-in-out hover:bg-primary/90 disabled:opacity-50"
+          onClick={handleSendMessage}
+          disabled={!newMessage.trim() || !isConnected}
+        >
+          <SendHorizontal size={24} />
+        </Button>
+      </div>
+
+      {viewingImage && <ImageViewer src={viewingImage} onClose={() => setViewingImage(null)} />}
+    </div>
+  )
+}

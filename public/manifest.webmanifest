@@ -1,0 +1,23 @@
+{
+  "name": "ChatFilm PWA",
+  "short_name": "ChatFilm",
+  "description": "WhatsApp-Style Film Set Chat PWA",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#4f46e5",
+  "icons": [
+    // Add your new icons here after placing them in /public
+    // Example:
+    // {
+    //   "src": "/icons/icon-192x192.png",
+    //   "sizes": "192x192",
+    //   "type": "image/png"
+    // },
+    // {
+    //   "src": "/icons/icon-512x512.png",
+    //   "sizes": "512x512",
+    //   "type": "image/png"
+    // }
+  ]
+}
