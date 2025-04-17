@@ -1,3 +1,7 @@
+Can you implement the below for me, since i'm hosting both fromtned and backend in same vercel machine I need to not run the backend on a specifc port but rather create a new api route as any standard backend and frontned application will have. analyse the whole codebase and implenent such that both backend and frontend run on the same machine suing best idustry practices and architecture, maybe implement api roiutes. Remember I do not want to implement this in the same next.js I want to have seperate backend and frontend as it is now and run both of them on same vercel server. just add api routes in the backend so that it's accesible
+
+go through the whole codebase, and fix this please 
+
 
 # Deploying Chat Film App on Vercel
 
