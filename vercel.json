@@ -20,6 +20,14 @@
     {
       "src": "/socket.io/(.*)",
       "dest": "/backend/server.js" 
+    },
+    {
+      "src": "/(.*)",
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)", 
+      "dest": "/frontend"
     }
   ]
 }
