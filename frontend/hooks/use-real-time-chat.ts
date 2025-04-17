@@ -52,7 +52,13 @@ export function useRealTimeChat(currentUser: string, otherUser: string) {
     console.log(`Attempting to connect to Socket.IO server at ${SOCKET_SERVER_URL} as ${currentUser}`)
     // Initialize socket connection
     // Use specific types if defined: socketRef.current = io<ServerToClientEvents, ClientToServerEvents>(SOCKET_SERVER_URL);
-    socketRef.current = io(SOCKET_SERVER_URL)
+    socketRef.current = io(SOCKET_SERVER_URL, {
+      path: "/socket.io/",
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    })
 
     const socket = socketRef.current
 
@@ -97,6 +103,7 @@ export function useRealTimeChat(currentUser: string, otherUser: string) {
     })
 
     socket.on("userTyping", (data: { from: string }) => {
+      console.log(`Received userTyping event:`, data);
       if (data.from === otherUser) {
         console.log(`${otherUser} is typing...`)
         setIsTyping(true)
@@ -104,6 +111,7 @@ export function useRealTimeChat(currentUser: string, otherUser: string) {
     })
 
     socket.on("userStoppedTyping", (data: { from: string }) => {
+      console.log(`Received userStoppedTyping event:`, data);
       if (data.from === otherUser) {
         console.log(`${otherUser} stopped typing.`)
         setIsTyping(false)
@@ -134,13 +142,13 @@ export function useRealTimeChat(currentUser: string, otherUser: string) {
     if (!socketRef.current || !isConnected) return
 
     if (newMessage.trim()) {
-      console.log("Emitting typing")
+      console.log(`Emitting typing event to ${otherUser} with socket ID ${socketRef.current.id}`)
       socketRef.current.emit("typing", { to: otherUser })
       emitStopTyping() // Schedule stopTyping emission
     } else {
       // If message becomes empty, cancel any scheduled stopTyping and emit immediately
       emitStopTyping.cancel()
-      console.log("Emitting stopTyping immediately (message cleared)")
+      console.log(`Emitting stopTyping immediately to ${otherUser} with socket ID ${socketRef.current.id}`)
       socketRef.current.emit("stopTyping", { to: otherUser })
     }
 
