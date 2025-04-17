@@ -4,19 +4,23 @@ const express = require("express");
 const cors = require("cors");
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  // Configure CORS properly for Vercel
+  origin: process.env.ALLOWED_ORIGIN || true, // Allow Vercel deployment URL or allow all if not set
+  credentials: true
+}));
 
 // Basic health check route
-app.get("/", (req, res) => {
-  res.send("Socket.IO server is running");
+app.get("/api", (req, res) => { // Changed path slightly to avoid conflict with root
+  res.send("API and Socket.IO server is running");
 });
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    // In production, restrict origins to your Vercel deployment URL
-    origin: process.env.ALLOWED_ORIGIN || "*",
-    methods: ["GET", "POST"]
+    origin: process.env.ALLOWED_ORIGIN || true,
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
@@ -122,8 +126,5 @@ io.on("connection", (socket) => {
   });
 });
 
-
-const PORT = process.env.PORT || 3001;
-httpServer.listen(PORT, () => {
-  console.log(`Socket.IO server listening on port ${PORT}`);
-});
+// Export the server instance for Vercel
+module.exports = httpServer;

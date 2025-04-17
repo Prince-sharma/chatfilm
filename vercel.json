@@ -6,10 +6,6 @@
       "use": "@vercel/node"
     },
     {
-      "src": "backend/socket-server.js",
-      "use": "@vercel/node" 
-    },
-    {
       "src": "frontend/package.json",
       "use": "@vercel/next",
       "config": { "distDir": ".next" } 
@@ -17,16 +13,20 @@
   ],
   "routes": [
     {
-      "src": "/socket.io/.*",
-      "dest": "backend/socket-server.js"
-    },
-    {
       "src": "/api/(.*)",
       "dest": "backend/server.js"
     },
     {
+      "src": "/socket.io/(.*)",
+      "dest": "backend/server.js"
+    },
+    {
       "src": "/(.*)",
-      "dest": "frontend/$1"
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "frontend"
     }
   ]
 } 
