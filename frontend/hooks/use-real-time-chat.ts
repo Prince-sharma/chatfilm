@@ -50,16 +50,9 @@ export function useRealTimeChat(currentUser: string, otherUser: string) {
     if (!currentUser) return
 
     console.log(`Attempting to connect to Socket.IO server at ${SOCKET_SERVER_URL} as ${currentUser}`)
-    
-    // Initialize socket connection with options
-    socketRef.current = io(SOCKET_SERVER_URL, {
-      path: '/socket.io/',
-      transports: ['polling', 'websocket'],
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000
-    })
+    // Initialize socket connection
+    // Use specific types if defined: socketRef.current = io<ServerToClientEvents, ClientToServerEvents>(SOCKET_SERVER_URL);
+    socketRef.current = io(SOCKET_SERVER_URL)
 
     const socket = socketRef.current
 

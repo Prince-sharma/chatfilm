@@ -6,7 +6,7 @@ const cors = require("cors");
 const app = express();
 app.use(cors({
   // Configure CORS properly for Vercel
-  origin: process.env.ALLOWED_ORIGIN || "*", // Allow Vercel deployment URL or allow all if not set
+  origin: process.env.ALLOWED_ORIGIN || true, // Allow Vercel deployment URL or allow all if not set
   credentials: true
 }));
 
@@ -23,21 +23,18 @@ app.get("/api", (req, res) => {
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.ALLOWED_ORIGIN || "*",
+    origin: process.env.ALLOWED_ORIGIN || true,
     methods: ["GET", "POST"],
     credentials: true
   },
-  path: "/socket.io/", // Make sure path exactly matches what client expects
-  // Add adapter options for serverless environment
-  transports: ['polling', 'websocket'],
-  addTrailingSlash: false
+  path: "/socket.io/" // Make sure path exactly matches what client expects
 });
 
 // Copy the rest of your socket-server.js content here
 const userSockets = {}; // Map userId (role) to socketId
 const messages = {}; // Store messages per room (e.g., 'akash-divyangini')
 
-console.log("Socket.IO server starting...");
+console.log("Socket.IO server starting on port 3001...");
 
 io.on("connection", (socket) => {
   console.log(`User connected: ${socket.id}`);
@@ -135,20 +132,13 @@ io.on("connection", (socket) => {
   });
 });
 
-// For local development, listen on port
+// Export the server instance for Vercel
+module.exports = httpServer;
+
+// Add this for compatibility with Vercel serverless functions
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3001;
   httpServer.listen(PORT, () => {
     console.log(`Socket.IO server listening on port ${PORT}`);
   });
-}
-
-// For Vercel serverless functions
-module.exports = (req, res) => {
-  if (req.method === 'GET' && req.url === '/') {
-    return app(req, res);
-  }
-  
-  // For Socket.IO
-  return httpServer;
 }

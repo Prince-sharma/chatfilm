@@ -3,10 +3,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "frontend/.next",
   "rewrites": [
-    { "source": "/socket.io/:path*", "destination": "/backend/server.js" },
-    { "source": "/api/:path*", "destination": "/backend/server.js" }
-  ],
-  "env": {
-    "ALLOWED_ORIGIN": "https://chatfilm.vercel.app"
-  }
+    { "source": "/socket.io/(.*)", "destination": "/backend/server.js" },
+    { "source": "/api/(.*)", "destination": "/backend/server.js" }
+  ]
 }
