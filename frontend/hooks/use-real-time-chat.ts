@@ -26,7 +26,7 @@ import { debounce } from 'lodash'
 
 // Use a more specific type for the socket if you defined the event types
 // const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
-const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+const SOCKET_SERVER_URL = "http://localhost:3001";
 
 export function useRealTimeChat(currentUser: string, otherUser: string) {
   const [messages, setMessages] = useState<Message[]>([])
