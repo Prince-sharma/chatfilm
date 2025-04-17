@@ -25,8 +25,15 @@ import { debounce } from 'lodash'
 // }
 
 // Use a more specific type for the socket if you defined the event types
-const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
-// const SOCKET_SERVER_URL = "http://localhost:3001";
+// Determine Socket.IO server URL based on environment
+const getSocketServerUrl = () => {
+  // In production (Vercel), use relative URL which will be handled by the API route
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.NEXT_PUBLIC_SOCKET_URL || '/';
+  }
+  // In development, connect to the local backend server
+  return process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+};
 
 export function useRealTimeChat(currentUser: string, otherUser: string) {
   const [messages, setMessages] = useState<Message[]>([])
@@ -49,10 +56,14 @@ export function useRealTimeChat(currentUser: string, otherUser: string) {
     // Prevent connection attempt if currentUser is not set (e.g., during initial render)
     if (!currentUser) return
 
-    console.log(`Attempting to connect to Socket.IO server at ${SOCKET_SERVER_URL} as ${currentUser}`)
-    // Initialize socket connection
-    // Use specific types if defined: socketRef.current = io<ServerToClientEvents, ClientToServerEvents>(SOCKET_SERVER_URL);
-    socketRef.current = io(SOCKET_SERVER_URL)
+    const socketServerUrl = getSocketServerUrl();
+    console.log(`Attempting to connect to Socket.IO server at ${socketServerUrl} as ${currentUser}`);
+    
+    // Initialize socket connection with the specific path for the API route
+    socketRef.current = io(socketServerUrl, {
+      path: process.env.NODE_ENV === 'production' ? '/api/socketio' : '/socket.io',
+      transports: ['websocket', 'polling'],
+    });
 
     const socket = socketRef.current
 

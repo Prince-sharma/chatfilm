@@ -3,7 +3,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "frontend/.next",
   "rewrites": [
-    { "source": "/socket.io/(.*)", "destination": "/backend/server.js" },
-    { "source": "/api/(.*)", "destination": "/backend/server.js" }
+    { "source": "/api/socketio", "destination": "/api/socketio" },
+    { "source": "/api/(.*)", "destination": "/api/$1" }
   ]
 }
