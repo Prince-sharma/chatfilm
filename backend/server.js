@@ -8,7 +8,8 @@ const app = express();
 const allowedOrigins = [
   'https://chatfilm.vercel.app',
   'https://chatfilm-princesharmas-projects.vercel.app',
-  'https://chatfilm-git-main-princesharmas-projects.vercel.app'
+  'https://chatfilm-git-main-princesharmas-projects.vercel.app',
+  'http://localhost:3000'
 ];
 
 const corsOptions = {
