@@ -92,25 +92,19 @@ io.on("connection", (socket) => {
 
   // Handle typing indicator
   socket.on("typing", ({ to }) => {
-    console.log(`Typing event received from ${socket.role} to ${to}`);
     const recipientSocketId = userSockets[to];
     if (recipientSocketId) {
-        console.log(`${socket.role} is typing to ${to}, sending to socket ${recipientSocketId}`);
+        console.log(`${socket.role} is typing to ${to}`);
         io.to(recipientSocketId).emit("userTyping", { from: socket.role });
-    } else {
-        console.log(`Could not find socket ID for recipient ${to}. Available users:`, Object.keys(userSockets));
     }
   });
 
   // Handle stop typing indicator
   socket.on("stopTyping", ({ to }) => {
-    console.log(`Stop typing event received from ${socket.role} to ${to}`);
     const recipientSocketId = userSockets[to];
     if (recipientSocketId) {
-        console.log(`${socket.role} stopped typing to ${to}, sending to socket ${recipientSocketId}`);
+        console.log(`${socket.role} stopped typing to ${to}`);
         io.to(recipientSocketId).emit("userStoppedTyping", { from: socket.role });
-    } else {
-        console.log(`Could not find socket ID for recipient ${to}. Available users:`, Object.keys(userSockets));
     }
   });
 
