@@ -1,9 +1,5 @@
 {
   "version": 2,
   "buildCommand": "npm run build",
-  "outputDirectory": "frontend/.next",
-  "rewrites": [
-    { "source": "/socket.io/(.*)", "destination": "/backend/server.js" },
-    { "source": "/api/(.*)", "destination": "/backend/server.js" }
-  ]
+  "outputDirectory": "frontend/.next"
 }

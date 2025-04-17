@@ -4,11 +4,29 @@ const express = require("express");
 const cors = require("cors");
 
 const app = express();
-app.use(cors({
-  // Configure CORS properly for Vercel
-  origin: process.env.ALLOWED_ORIGIN || true, // Allow Vercel deployment URL or allow all if not set
+
+const allowedOrigins = [
+  'https://chatfilm.vercel.app',
+  'https://chatfilm-princesharmas-projects.vercel.app',
+  'https://chatfilm-git-main-princesharmas-projects.vercel.app'
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // Allow origin if it's in the allowed list or matches the env var
+    if (allowedOrigins.includes(origin) || origin === process.env.ALLOWED_ORIGIN) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
-}));
+};
+
+app.use(cors(corsOptions));
 
 // Basic health check route
 app.get("/", (req, res) => {
@@ -22,11 +40,7 @@ app.get("/api", (req, res) => {
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: {
-    origin: process.env.ALLOWED_ORIGIN || true,
-    methods: ["GET", "POST"],
-    credentials: true
-  },
+  cors: corsOptions, // Use the same corsOptions here
   path: "/socket.io/" // Make sure path exactly matches what client expects
 });
 
