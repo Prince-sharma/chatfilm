@@ -11,7 +11,12 @@ app.use(cors({
 }));
 
 // Basic health check route
-app.get("/api", (req, res) => { // Changed path slightly to avoid conflict with root
+app.get("/", (req, res) => {
+  res.send("API and Socket.IO server is running");
+});
+
+// Also handle /api route
+app.get("/api", (req, res) => {
   res.send("API and Socket.IO server is running");
 });
 
@@ -21,7 +26,8 @@ const io = new Server(httpServer, {
     origin: process.env.ALLOWED_ORIGIN || true,
     methods: ["GET", "POST"],
     credentials: true
-  }
+  },
+  path: "/socket.io/" // Make sure path exactly matches what client expects
 });
 
 // Copy the rest of your socket-server.js content here
@@ -128,3 +134,11 @@ io.on("connection", (socket) => {
 
 // Export the server instance for Vercel
 module.exports = httpServer;
+
+// Add this for compatibility with Vercel serverless functions
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 3001;
+  httpServer.listen(PORT, () => {
+    console.log(`Socket.IO server listening on port ${PORT}`);
+  });
+}
