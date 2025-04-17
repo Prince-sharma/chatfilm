@@ -1,3 +1,5 @@
+import withPWAInit from "next-pwa";
+
 let userConfig = undefined
 try {
   // try to import ESM first
@@ -29,6 +31,15 @@ const nextConfig = {
   },
 }
 
+// PWA Configuration
+const withPWA = withPWAInit({
+  dest: "public", // Destination directory for the service worker and other PWA files.
+  register: true, // Register the service worker.
+  skipWaiting: true, // Install the new service worker without waiting for the existing one to finish.
+  disable: process.env.NODE_ENV === "development", // Disable PWA in development.
+  // You might want to add runtime caching strategies here later
+});
+
 if (userConfig) {
   // ESM imports will have a "default" property
   const config = userConfig.default || userConfig
@@ -48,4 +59,5 @@ if (userConfig) {
   }
 }
 
-export default nextConfig
+// Export the final config wrapped with PWA
+export default withPWA(nextConfig);

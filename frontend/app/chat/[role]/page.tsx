@@ -20,10 +20,28 @@ import { useRealTimeChat } from "@/hooks/use-real-time-chat"
 import ChatBackground from "@/components/chat-background"
 import { cn } from "@/lib/utils"
 
+type ValidRole = 'akash' | 'divyangini'
+
 export default function ChatPage() {
   const params = useParams()
   const router = useRouter()
-  const role = params.role as string
+  const roleParam = params.role as string
+
+  // Validate role
+  useEffect(() => {
+    if (roleParam !== 'akash' && roleParam !== 'divyangini') {
+      console.error("Invalid role specified in URL:", roleParam)
+      router.replace("/"); // Redirect to home or an error page
+    }
+  }, [roleParam, router])
+
+  // Return null or a loading state while validating/redirecting
+  if (roleParam !== 'akash' && roleParam !== 'divyangini') {
+    return null; // Or a loading spinner
+  }
+
+  // Cast to the validated type
+  const role = roleParam as ValidRole;
   const otherPerson = role === "akash" ? "divyangini" : "akash"
 
   const {
@@ -155,9 +173,9 @@ export default function ChatPage() {
         </div>
       </header>
 
-      <div ref={chatContainerRef} className="relative flex-1 overflow-y-auto p-4">
-        <ChatBackground />
-        <div className="relative z-10 space-y-1 pb-2">
+      <div ref={chatContainerRef} className="relative flex-1 overflow-y-auto p-3 sm:p-4">
+        <ChatBackground role={role} />
+        <div className="relative z-10 space-y-1.5 pb-3 sm:pb-4">
           {messages.map((message) => (
             <div key={message.id} data-message-id={message.id} data-sender={message.sender}>
               <ChatMessage message={message} currentUser={role} onImageClick={setViewingImage} />
