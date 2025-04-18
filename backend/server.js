@@ -150,10 +150,9 @@ io.on("connection", (socket) => {
 // Export the server instance for Vercel
 module.exports = httpServer;
 
+const PORT = process.env.PORT || 3001;
 // Add this for compatibility with Vercel serverless functions
-if (process.env.NODE_ENV !== 'production') {
-  const PORT = process.env.PORT || 3001;
-  httpServer.listen(PORT, () => {
+httpServer.listen(PORT, () => {
     console.log(`Socket.IO server listening on port ${PORT}`);
   });
-}
+
