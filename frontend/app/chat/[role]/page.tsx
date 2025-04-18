@@ -200,8 +200,9 @@ export default function ChatPage() {
         <Button
           variant="ghost"
           size="icon"
-          className="mr-2 h-11 w-11 flex-shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+          className="mr-2 h-12 w-12 flex-shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform duration-200"
           onClick={handleCameraClick}
+          aria-label="Take a photo"
         >
           <Camera size={22} />
           <input
@@ -219,7 +220,7 @@ export default function ChatPage() {
             ref={inputRef}
             type="text"
             placeholder="Message..."
-            className="w-full rounded-full border-border bg-input py-3 pl-4 pr-12 text-base text-foreground placeholder:text-muted-foreground focus:border-ring focus:ring-1 focus:ring-ring"
+            className="w-full rounded-full border-border bg-input py-4 pl-4 pr-12 text-base text-foreground placeholder:text-muted-foreground focus:border-ring focus:ring-1 focus:ring-ring"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
@@ -232,9 +233,10 @@ export default function ChatPage() {
         <Button
           variant="ghost"
           size="icon"
-          className="ml-2 h-12 w-12 flex-shrink-0 rounded-full bg-primary text-primary-foreground transition-colors duration-200 ease-in-out hover:bg-primary/90 disabled:opacity-50"
+          className="ml-2 h-12 w-12 flex-shrink-0 rounded-full bg-primary text-primary-foreground transition-all duration-200 hover:bg-primary/90 disabled:opacity-50 active:scale-95 disabled:active:scale-100"
           onClick={handleSendMessage}
           disabled={!newMessage.trim() || !isConnected}
+          aria-label="Send message"
         >
           <SendHorizontal size={24} />
         </Button>
