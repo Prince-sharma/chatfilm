@@ -49,8 +49,6 @@ const io = new Server(httpServer, {
 const userSockets = {}; // Map userId (role) to socketId
 const messages = {}; // Store messages per room (e.g., 'akash-divyangini')
 
-console.log("Socket.IO server starting on port 3001...");
-
 io.on("connection", (socket) => {
   console.log(`User connected: ${socket.id}`);
 
