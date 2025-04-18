@@ -1,65 +1,98 @@
 "use client"
+
+import React, { useState } from "react"
 import Image from "next/image"
-import { Check, CheckCheck } from "lucide-react"
-import type { Message } from "@/lib/chat-data"
-import { formatTime } from "@/lib/utils"
+import { format } from "date-fns"
+import { Copy, Check, MessageSquare, Recycle, CheckCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Message } from "@/lib/chat-data"
+import { Button } from "@/components/ui/button"
 
 interface ChatMessageProps {
   message: Message
   currentUser: string
-  onImageClick: (src: string) => void
+  onImageClick?: (src: string) => void
+  aiName?: string
+  aiImage?: string
+  onRegenerate?: (id: string) => void
+  isLoadingRegenerate?: boolean
+  regeneratingId?: string
 }
 
-export default function ChatMessage({ message, currentUser, onImageClick }: ChatMessageProps) {
-  const isOwnMessage = message.sender === currentUser
+export default function ChatMessage({
+  message,
+  currentUser,
+  onImageClick,
+  aiName,
+  aiImage,
+  onRegenerate,
+  isLoadingRegenerate = false,
+  regeneratingId,
+}: ChatMessageProps) {
+  const [copied, setCopied] = useState(false)
 
-  const renderContent = () => {
-    switch (message.type) {
-      case "text":
-        return <p className="text-base leading-relaxed break-words">{message.content}</p>
-      case "image":
-        return (
-          <div className="cursor-pointer overflow-hidden rounded-lg" onClick={() => onImageClick(message.content)}>
-            <Image
-              src={message.content || "/placeholder.svg"}
-              alt="Shared image"
-              width={300}
-              height={300}
-              className="h-auto w-full max-w-[300px] object-cover transition-transform hover:scale-105"
-              priority={false}
-            />
-          </div>
-        )
-      default:
-        return <p className="text-sm text-gray-400 italic">Unsupported message type</p>
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message.content)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const isUser = message.sender === currentUser
+  const displayName = isUser ? "You" : aiName || message.sender
+
+  const isLoading = regeneratingId === message.id && isLoadingRegenerate
+
+  const handleImageClick = () => {
+    if (message.type === "image" && onImageClick) {
+      onImageClick(message.content)
     }
   }
 
-  const renderReadReceipt = () => {
-    if (!isOwnMessage) return null;
-
-    if (message.seen) {
-      return <CheckCheck size={16} className="text-accent" />;
-    }
-    return <CheckCheck size={16} className="text-muted-foreground/70" />;
-  };
-
   return (
-    <div className={cn("mb-1 flex", isOwnMessage ? "justify-end" : "justify-start")}>
+    <div
+      className={cn(
+        "group mb-2 flex w-full",
+        isUser ? "justify-end" : "justify-start"
+      )}
+    >
       <div
         className={cn(
-          "relative max-w-[80%] rounded-lg px-3 py-1.5 shadow-md",
-          isOwnMessage
-            ? "rounded-br-none bg-primary text-primary-foreground"
-            : "rounded-bl-none bg-secondary text-secondary-foreground"
+          "relative flex flex-col rounded-md text-sm sm:text-base w-fit max-w-[75%]",
+          isUser
+            ? "bg-primary text-primary-foreground"
+            : "bg-card text-foreground shadow-sm border border-border/30",
+          message.type === 'image' ? 'p-0 overflow-hidden' : 'px-2.5 py-1.5'
         )}
       >
-        {renderContent()}
-        <div className="mt-1 flex items-center justify-end space-x-1 pl-4">
-          <span className="text-[10px] text-muted-foreground/80">{formatTime(message.timestamp)}</span>
-          {renderReadReceipt()}
-        </div>
+        {message.type === "image" ? (
+          <div className="cursor-pointer relative" onClick={handleImageClick}>
+            <Image
+              src={message.content}
+              alt="Shared image"
+              width={300}
+              height={300}
+              className="max-w-full h-auto rounded-md object-cover"
+            />
+            <div className="absolute bottom-1 right-1.5 flex items-center justify-end gap-1 rounded-full bg-black/30 px-1.5 py-0.5 text-[10px] text-white/90">
+              <span>{format(new Date(message.timestamp), "h:mm a")}</span>
+              {isUser && (
+                <CheckCheck size={14} className={cn(message.seen ? "text-blue-400" : "text-white/70")} />
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-end justify-between gap-x-2">
+            <span className="whitespace-pre-wrap break-words">{message.content}</span>
+            <span className="relative -bottom-0.5 ml-2 flex flex-shrink-0 items-center justify-end self-end text-[10px]">
+              <span className={cn("whitespace-nowrap", isUser ? "text-primary-foreground/70" : "text-muted-foreground/80")}>
+                {format(new Date(message.timestamp), "h:mm a")}
+              </span>
+              {isUser && (
+                <CheckCheck size={14} className={cn("ml-0.5 flex-shrink-0", message.seen ? "text-blue-400" : "text-primary-foreground/50")} />
+              )}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   )
