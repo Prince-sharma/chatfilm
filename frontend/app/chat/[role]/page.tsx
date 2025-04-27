@@ -55,6 +55,7 @@ export default function ChatPage() {
     sendImage,
     markAsSeen,
     isConnected,
+    deleteMessage,
   } = useRealTimeChat(role, otherPerson)
 
   const [viewingImage, setViewingImage] = useState<string | null>(null)
@@ -135,6 +136,20 @@ export default function ChatPage() {
   const handleSendMessage = () => {
     if (newMessage.trim()) {
       sendMessage()
+      inputRef.current?.focus()
+    }
+  }
+
+  const handleDeleteMessage = (messageId: string) => {
+    // Call the hook's delete function and handle optimistic UI updates
+    if (messageId) {
+      console.log(`Deleting message with ID: ${messageId}`);
+      deleteMessage(messageId);
+      
+      // Focus back on the input field after deletion for better UX
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 300);
     }
   }
 
@@ -157,9 +172,6 @@ export default function ChatPage() {
             </div>
             <div className="ml-3">
               <h2 className="text-lg font-semibold capitalize text-foreground">{otherPerson}</h2>
-              <p className="text-xs text-muted-foreground">
-                {isTyping ? <span className="italic">typing...</span> : isConnected ? 'online' : 'offline'}
-              </p>
             </div>
           </div>
         </div>
@@ -177,12 +189,22 @@ export default function ChatPage() {
         <ChatBackground role={role} />
         <div className="relative z-10 space-y-1.5 pb-3 sm:pb-4">
           {messages.map((message) => (
-            <div key={message.id} data-message-id={message.id} data-sender={message.sender}>
-              <ChatMessage message={message} currentUser={role} onImageClick={setViewingImage} />
+            <div 
+              key={message.id} 
+              data-message-id={message.id} 
+              data-sender={message.sender}
+              className="transition-all duration-300 ease-in-out"
+            >
+              <ChatMessage 
+                message={message} 
+                currentUser={role} 
+                onImageClick={setViewingImage}
+                onDeleteMessage={handleDeleteMessage} 
+              />
             </div>
           ))}
           {isTyping && (
-            <div className={`flex justify-start`}>
+            <div className={`flex justify-start animate-pulse`}>
               <div className="ml-2 rounded-full bg-secondary px-4 py-2 shadow-md">
                 <div className="flex items-center space-x-1">
                   <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]"></div>
@@ -225,7 +247,6 @@ export default function ChatPage() {
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
             onFocus={handleInputFocus}
-            onBlur={handleInputBlur}
             autoComplete="off"
           />
         </div>

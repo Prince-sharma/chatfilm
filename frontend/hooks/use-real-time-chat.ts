@@ -89,7 +89,12 @@ export function useRealTimeChat(currentUser: string, otherUser: string) {
         // const audio = new Audio('/path/to/notification.mp3');
         // audio.play();
       }
-      setMessages((prevMessages) => [...prevMessages, receivedMessage])
+      // Only add the message if it doesn't already exist
+      setMessages((prevMessages) => {
+        const exists = prevMessages.some(msg => msg.id === receivedMessage.id);
+        if (exists) return prevMessages;
+        return [...prevMessages, receivedMessage];
+      })
       // If the incoming message is from the other user, they are no longer typing
       if (receivedMessage.sender === otherUser) {
         setIsTyping(false)
@@ -118,6 +123,13 @@ export function useRealTimeChat(currentUser: string, otherUser: string) {
         )
       )
     })
+
+    // Add listener for message deletion confirmation
+    socket.on("messageDeleted", (data: { messageId: string }) => {
+      console.log(`Message ${data.messageId} deletion confirmed by server.`);
+      // Ensure we immediately remove the message from the UI
+      setMessages((prevMessages) => prevMessages.filter((msg) => msg.id !== data.messageId));
+    });
 
     // --- Cleanup ---
     return () => {
@@ -201,6 +213,30 @@ export function useRealTimeChat(currentUser: string, otherUser: string) {
     }
   }
 
+  // Delete a message
+  const deleteMessage = (messageId: string) => {
+    // Find the message to ensure it exists and belongs to the current user
+    const messageToDelete = messages.find(m => m.id === messageId);
+    if (!messageToDelete || messageToDelete.sender !== currentUser) {
+      console.warn(`Cannot delete message ${messageId}: Not found or not owner.`);
+      return;
+    }
+
+    if (!socketRef.current || !isConnected) {
+      console.error("Cannot delete message: Socket not connected.");
+      // Optionally handle offline deletion queueing here
+      return;
+    }
+
+    console.log(`Attempting to delete message: ${messageId}`);
+    
+    // Optimistic update (remove locally immediately)
+    setMessages((prevMessages) => prevMessages.filter((msg) => msg.id !== messageId));
+    
+    // Send deletion request to server
+    socketRef.current.emit("deleteMessage", { messageId: messageId });
+  }
+
   return {
     messages,
     isTyping,
@@ -211,6 +247,7 @@ export function useRealTimeChat(currentUser: string, otherUser: string) {
     sendMessage,
     sendImage,
     markAsSeen,
+    deleteMessage, // Expose the delete function
     isConnected, // Expose connection status to UI if needed
   }
 }

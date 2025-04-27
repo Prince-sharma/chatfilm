@@ -48,6 +48,7 @@ const io = new Server(httpServer, {
 // Copy the rest of your socket-server.js content here
 const userSockets = {}; // Map userId (role) to socketId
 const messages = {}; // Store messages per room (e.g., 'akash-divyangini')
+const deletedMessageIds = new Set(); // Store deleted message IDs to ensure they stay deleted
 
 io.on("connection", (socket) => {
   console.log(`User connected: ${socket.id}`);
@@ -68,7 +69,10 @@ io.on("connection", (socket) => {
     if (!messages[roomName]) {
         messages[roomName] = [];
     }
-    socket.emit('loadMessages', messages[roomName]);
+    
+    // Filter out deleted messages before sending
+    const activeMessages = messages[roomName].filter(msg => !deletedMessageIds.has(msg.id));
+    socket.emit('loadMessages', activeMessages);
   });
 
   // Handle new messages
@@ -81,11 +85,15 @@ io.on("connection", (socket) => {
         message.timestamp = new Date().toISOString();
         message.delivered = false; // Mark as not delivered initially
         message.seen = false;
-        messages[roomName].push(message);
-
-        // Send to all in room including sender
-        io.to(roomName).emit("newMessage", message);
-        console.log(`Message broadcasted to room ${roomName}:`, message);
+        
+        // Only add message if it's not in the deleted list
+        if (!deletedMessageIds.has(message.id)) {
+            messages[roomName].push(message);
+            
+            // Send to all in room including sender
+            io.to(roomName).emit("newMessage", message);
+            console.log(`Message broadcasted to room ${roomName}:`, message);
+        }
     }
   });
 
@@ -126,6 +134,30 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Handle message deletion
+  socket.on("deleteMessage", ({ messageId }) => {
+    const roomName = Array.from(socket.rooms).find(r => r !== socket.id);
+    if (roomName && messages[roomName]) {
+      const messageIndex = messages[roomName].findIndex(m => m.id === messageId);
+      if (messageIndex > -1) {
+        // Check if the user is the message sender
+        if (messages[roomName][messageIndex].sender === socket.role) {
+          // Add the message ID to the deleted set for persistence
+          deletedMessageIds.add(messageId);
+          
+          // Remove the message from the server's storage
+          messages[roomName].splice(messageIndex, 1);
+          
+          // Notify all users in the room about the deletion
+          io.to(roomName).emit("messageDeleted", { messageId });
+          console.log(`Message ${messageId} deleted by ${socket.role} and all users in room ${roomName} notified`);
+        } else {
+          console.log(`Unauthorized delete attempt: ${socket.role} tried to delete message sent by ${messages[roomName][messageIndex].sender}`);
+        }
+      }
+    }
+  });
+
   // Handle disconnect
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${socket.id}`);
@@ -134,10 +166,16 @@ io.on("connection", (socket) => {
       if (userSockets[role] === socket.id) {
         delete userSockets[role];
         console.log(`Removed ${role} from user mapping.`);
-        // Optional: Notify other user in the room about disconnection
-        const roomName = Array.from(socket.rooms).find(r => r !== socket.id);
-        if (roomName) {
-            socket.to(roomName).emit('userOffline', { role });
+        
+        // Keep track of the room to notify other members
+        const otherRole = role === 'akash' ? 'divyangini' : 'akash';
+        const roomName = [role, otherRole].sort().join('-');
+        
+        // Notify other user in the room about disconnection if they're connected
+        const otherUserSocketId = userSockets[otherRole];
+        if (otherUserSocketId) {
+          io.to(otherUserSocketId).emit('userOffline', { role });
+          console.log(`Notified ${otherRole} that ${role} went offline`);
         }
         break;
       }
