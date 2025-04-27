@@ -1,3 +1,11 @@
+Done the below changes:
+1. In mobile, the keyboard should persist after sending a messge like insa dms or whatsapp
+2. Improved the animations for typing and sending a message the slight jerky issue should not happen now
+3. Removed the gap on the right for chat messges bubbles 
+4. Removed the online indicator form the profile
+5. removed the time from the message bubbkle sent
+6. Added the functionality to long press and delete
+
 The long press to delete the functionality still doesn't work properly. When any of the charcater long presses to delete the chat messge the message should disappear from both of the chat screens simultenaously in real time. and refrsing the page should also remove the deleted messages. and the deleted messges should go away since they were deleted. curremntly on reloading it brings back the deleted messages. please fix this
 
 
