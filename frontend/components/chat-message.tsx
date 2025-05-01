@@ -132,7 +132,7 @@ export default function ChatMessage({
       <div
         style={{ willChange: 'transform, opacity' }}
         className={cn(
-          "relative flex flex-col rounded-md text-sm sm:text-base w-fit max-w-[95%]",
+          "relative flex flex-col rounded-xl text-base w-fit max-w-[95%]",
           isUser
             ? "bg-primary text-primary-foreground"
             : "bg-card text-foreground shadow-sm border border-border/30",
@@ -159,8 +159,8 @@ export default function ChatMessage({
           <div className="flex flex-col justify-between">
             <span className="whitespace-pre-wrap break-words max-w-[60vw] sm:max-w-[300px]">{message.content}</span>
             {isUser && (
-              <span className="flex justify-end mt-0.5 text-[8px]">
-                <CheckCheck size={10} className={cn("flex-shrink-0", message.seen ? "text-blue-400" : "text-primary-foreground/40")} />
+              <span className="flex justify-end mt-0.5 text-[9px]">
+                <CheckCheck size={12} className={cn("flex-shrink-0", message.seen ? "text-blue-400" : "text-primary-foreground/40")} />
               </span>
             )}
           </div>

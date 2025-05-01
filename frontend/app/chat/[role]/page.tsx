@@ -176,11 +176,16 @@ export default function ChatPage() {
           </div>
         </div>
         <div className="flex items-center">
-          <Button variant="ghost" size="icon" className="text-foreground/80 hover:bg-secondary" onClick={() => setIsMuted(!isMuted)}>
-            {isMuted ? <BellOff size={20} className="text-destructive" /> : <Bell size={20} className="text-accent"/>}
-          </Button>
-          <Button variant="ghost" size="icon" className="text-foreground/80 hover:bg-secondary">
-            <MoreVertical size={20} />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className={cn(
+              "text-foreground/80 hover:bg-secondary rounded-full p-2",
+              isMuted && "bg-destructive/80 hover:bg-destructive text-destructive-foreground"
+            )}
+            onClick={() => setIsMuted(!isMuted)}
+          >
+            {isMuted ? <BellOff size={20} /> : <Bell size={20} />}
           </Button>
         </div>
       </header>
@@ -242,7 +247,7 @@ export default function ChatPage() {
             ref={inputRef}
             type="text"
             placeholder="Message..."
-            className="w-full rounded-full border-border bg-input py-4 pl-4 pr-12 text-base text-foreground placeholder:text-muted-foreground focus:border-ring focus:ring-1 focus:ring-ring"
+            className="w-full rounded-full border bg-input py-4 pl-4 pr-12 text-base text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
@@ -254,7 +259,7 @@ export default function ChatPage() {
         <Button
           variant="ghost"
           size="icon"
-          className="ml-2 h-12 w-12 flex-shrink-0 rounded-full bg-primary text-primary-foreground transition-all duration-200 hover:bg-primary/90 disabled:opacity-50 active:scale-95 disabled:active:scale-100"
+          className="ml-2 h-12 w-12 flex-shrink-0 rounded-full bg-primary text-primary-foreground transition-all duration-200 hover:bg-primary/90 disabled:opacity-50 disabled:active:scale-100"
           onClick={handleSendMessage}
           disabled={!newMessage.trim() || !isConnected}
           aria-label="Send message"
