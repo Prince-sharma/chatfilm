@@ -35,15 +35,33 @@ export default function ChatMessage({
   const [isLongPress, setIsLongPress] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const longPressTimer = useRef<NodeJS.Timeout | null>(null)
+  const [showSeen, setShowSeen] = useState(false)
+  const previousSeenStatus = useRef(message.seen)
+
+  const isUser = message.sender === currentUser
+  const displayName = isUser ? "You" : aiName || message.sender
+
+  useEffect(() => {
+    if (message.seen && !previousSeenStatus.current && isUser) {
+      setShowSeen(true)
+      const timer = setTimeout(() => {
+        setShowSeen(false)
+      }, 1500)
+
+      previousSeenStatus.current = true
+
+      return () => clearTimeout(timer)
+    }
+    if (message.seen !== previousSeenStatus.current) {
+      previousSeenStatus.current = message.seen
+    }
+  }, [message.seen, isUser])
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
-
-  const isUser = message.sender === currentUser
-  const displayName = isUser ? "You" : aiName || message.sender
 
   const isLoading = regeneratingId === message.id && isLoadingRegenerate
 
@@ -129,46 +147,39 @@ export default function ChatMessage({
       onTouchEnd={handleTouchEnd}
       onContextMenu={(e) => { if (isLongPress) e.preventDefault() }}
     >
-      <div
-        style={{ willChange: 'transform, opacity' }}
-        className={cn(
-          "relative flex flex-col rounded-xl text-base w-fit max-w-[95%]",
-          isUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-card text-foreground shadow-sm border border-border/30",
-          message.type === 'image' ? 'p-0 overflow-hidden' : 'px-2.5 py-1.5',
-          isLongPress && isUser ? "ring-2 ring-destructive ring-offset-2 ring-offset-background" : ""
-        )}
-      >
-        {message.type === "image" ? (
-          <div className="cursor-pointer relative" onClick={handleImageClick}>
-            <Image
-              src={message.content}
-              alt="Shared image"
-              width={300}
-              height={300}
-              className="max-w-full h-auto rounded-md object-cover"
-            />
-            <div className="absolute bottom-1 right-1.5 flex items-center justify-end gap-1 rounded-full bg-black/30 px-1.5 py-0.5 text-[10px] text-white/90">
-              {isUser && (
-                <CheckCheck size={12} className={cn(message.seen ? "text-blue-400" : "text-white/70")} />
-              )}
+      <div className={cn("flex flex-col", isUser ? "items-end" : "items-start")}>
+        <div
+          style={{ willChange: 'transform, opacity' }}
+          className={cn(
+            "relative inline-block rounded-[18px] text-base max-w-[80vw] lg:max-w-lg",
+            isUser
+              ? "bg-primary text-primary-foreground"
+              : "bg-card text-foreground shadow-sm border border-border/30",
+            message.type === 'image' ? 'p-0 overflow-hidden' : 'px-3 py-[7px]',
+            isLongPress && isUser ? "ring-2 ring-destructive ring-offset-2 ring-offset-background" : ""
+          )}
+        >
+          {message.type === "image" ? (
+            <div className="cursor-pointer relative" onClick={handleImageClick}>
+              <Image
+                src={message.content}
+                alt="Shared image"
+                width={300}
+                height={300}
+                className="max-w-full h-auto rounded-md object-cover"
+              />
             </div>
-          </div>
-        ) : (
-          <div className="flex flex-col justify-between">
-            <span className="whitespace-pre-wrap break-words max-w-[60vw] sm:max-w-[300px]">{message.content}</span>
-            {isUser && (
-              <span className="flex justify-end mt-0.5 text-[9px]">
-                <CheckCheck size={12} className={cn("flex-shrink-0", message.seen ? "text-blue-400" : "text-primary-foreground/40")} />
-              </span>
-            )}
-          </div>
-        )}
-        {isLongPress && isUser && (
-          <div className="absolute -top-2 -left-2 bg-destructive text-destructive-foreground rounded-full p-1 shadow-lg">
-            <Trash2 size={12} />
-          </div>
+          ) : (
+            <span className="whitespace-pre-wrap break-words">{message.content}</span>
+          )}
+          {isLongPress && isUser && (
+            <div className="absolute -top-2 -left-2 bg-destructive text-destructive-foreground rounded-full p-1 shadow-lg">
+              <Trash2 size={12} />
+            </div>
+          )}
+        </div>
+        {isUser && showSeen && (
+          <span className="text-xs text-muted-foreground mt-1">Seen</span>
         )}
       </div>
     </div>

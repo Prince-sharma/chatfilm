@@ -117,17 +117,59 @@ export default function ChatPage() {
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader()
+      console.log("File selected:", file.name, file.type, file.size);
+      const reader = new FileReader();
+      
       reader.onload = (event) => {
-        if (event.target?.result) {
-          sendImage(event.target.result.toString())
+        try {
+          if (event.target?.result) {
+            console.log("File read successfully, sending image...");
+            sendImage(event.target.result.toString());
+          } else {
+            console.error("FileReader onload event target result is null");
+            // Optionally show an error to the user
+          }
+        } catch (error) {
+           console.error("Error sending image after reading:", error);
+           // Optionally show an error to the user
+        } finally {
+          // Reset the input value to allow selecting the same file again
+          if (fileInputRef.current) {
+            fileInputRef.current.value = ""; 
+          }
+        }
+      };
+      
+      reader.onerror = (error) => {
+        console.error("Error reading file:", error);
+        // Optionally show an error to the user
+        // Reset the input value even if reading fails
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      };
+
+      try {
+        console.log("Attempting to read file as DataURL...");
+        reader.readAsDataURL(file);
+      } catch (error) {
+        console.error("Error initiating file read:", error);
+        // Optionally show an error to the user
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
         }
       }
-      reader.readAsDataURL(file)
+    } else {
+      console.log("No file selected or selection cancelled.");
+       // Reset the input value if no file was selected 
+       // (e.g., user cancelled camera)
+       if (fileInputRef.current) {
+         fileInputRef.current.value = "";
+       }
     }
-  }
+  };
 
   const handleProfileClick = () => {
     router.push(`/profile/${otherPerson}`)
@@ -234,7 +276,7 @@ export default function ChatPage() {
           <Camera size={22} />
           <input
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp"
             capture="environment"
             className="hidden"
             ref={fileInputRef}
@@ -247,7 +289,7 @@ export default function ChatPage() {
             ref={inputRef}
             type="text"
             placeholder="Message..."
-            className="w-full rounded-full border bg-input py-4 pl-4 pr-12 text-base text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+            className="w-full rounded-full border bg-input h-12 py-3 pl-4 pr-12 text-base text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
