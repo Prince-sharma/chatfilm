@@ -199,21 +199,59 @@ export default function ChatPage() {
     router.push(`/profile/${otherPerson}`)
   }
 
+  // Keyboard focus management for mobile devices
+  useEffect(() => {
+    if (!isMobile || !textareaRef.current) return;
+    
+    // Keep keyboard up at all times on mobile by maintaining focus
+    const maintainFocus = () => {
+      if (document.activeElement !== textareaRef.current) {
+        textareaRef.current?.focus();
+      }
+    };
+    
+    // Set initial focus
+    maintainFocus();
+    
+    // Maintain focus after sending a message
+    const focusInterval = setInterval(maintainFocus, 300);
+    
+    // Re-focus when device becomes visible again
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setTimeout(maintainFocus, 100);
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearInterval(focusInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isMobile]);
+
   const handleSendMessage = () => {
     if (newMessage.trim()) {
-      // Store current text before clearing input
-      // const currentText = newMessage.trim();
-      
       // Clear input field first for immediate feedback
+      const msgToSend = newMessage.trim();
       setNewMessage('');
+      
+      // Focus immediately before any UI updates
+      if (isMobile) {
+        textareaRef.current?.focus();
+      }
       
       // Then send the message
       sendMessage();
       
-      // Ensure the textarea remains focused to keep keyboard up on mobile
+      // Ensure the textarea remains focused after message is sent
       if (isMobile) {
+        // Use multiple strategies to maintain focus
         requestAnimationFrame(() => {
           textareaRef.current?.focus();
+          // Double-ensure focus with a slight delay
+          setTimeout(() => textareaRef.current?.focus(), 10);
         });
       }
     }
@@ -267,33 +305,6 @@ export default function ChatPage() {
     }
   }, [newMessage]); // Re-run when message changes
 
-  // Keep focus on the textarea to prevent keyboard dismissal on mobile
-  useEffect(() => {
-    if (!isMobile || !textareaRef.current) return;
-    
-    // Set initial focus
-    const focusTextarea = () => {
-      textareaRef.current?.focus();
-    };
-    
-    // Focus after a short delay to ensure the component is fully rendered
-    const initialFocusTimer = setTimeout(focusTextarea, 500);
-    
-    // Set up event listeners to maintain focus on mobile
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        setTimeout(focusTextarea, 300);
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      clearTimeout(initialFocusTimer);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [isMobile]);
-
   return (
     <div className="flex h-dvh flex-col bg-background">
       <header className="flex flex-shrink-0 items-center justify-between border-b border-border bg-card p-3 shadow-md">
@@ -331,9 +342,12 @@ export default function ChatPage() {
         </div>
       </header>
 
-      <div ref={chatContainerRef} className="relative flex-1 overflow-y-auto p-3 sm:p-4">
+      <div 
+        ref={chatContainerRef} 
+        className="relative flex-1 overflow-y-auto p-3 pb-1 sm:pb-2"
+      >
         <ChatBackground role={role} />
-        <div className="relative z-10 space-y-1.5 pb-3 sm:pb-4">
+        <div className="relative z-10 space-y-1 pb-1">
           {(() => {
             let lastSeenIndex = -1;
             let lastUserMessageIndex = -1;
@@ -387,15 +401,15 @@ export default function ChatPage() {
               </div>
             </div>
           )}
-          <div ref={messagesEndRef} className="h-1" />
+          <div ref={messagesEndRef} className="h-0.5" />
         </div>
       </div>
 
-      <div className="flex flex-shrink-0 items-center border-t border-border bg-card p-2 sm:p-3">
+      <div className="flex flex-shrink-0 items-center border-t border-border bg-card p-2 pt-1 sm:p-2">
         <Button
           variant="ghost"
           size="icon"
-          className="mr-2 h-10 w-10 flex-shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform"
+          className="mr-1 h-10 w-10 flex-shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform"
           onClick={handleCameraClick}
           aria-label="Take a photo"
         >
@@ -415,7 +429,7 @@ export default function ChatPage() {
             ref={textareaRef}
             rows={1}
             placeholder="Message..."
-            className="w-full border bg-input py-2 px-4 text-base text-foreground placeholder:text-muted-foreground resize-none overflow-hidden focus-visible:ring-0 focus-visible:ring-offset-0 border-input min-h-[40px] leading-normal transition-all duration-200"
+            className="w-full border bg-input py-1.5 px-4 text-base text-foreground placeholder:text-muted-foreground resize-none overflow-hidden focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none focus-visible:outline-none focus:border-input focus:bg-input min-h-[40px] leading-normal transition-all duration-200"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={(e) => {
@@ -433,7 +447,7 @@ export default function ChatPage() {
         <Button
           variant="ghost"
           size="icon"
-          className="ml-2 h-10 w-10 flex-shrink-0 rounded-full bg-primary text-primary-foreground active:scale-95 transition-transform"
+          className="ml-1 h-10 w-10 flex-shrink-0 rounded-full bg-primary text-primary-foreground active:scale-95 transition-transform"
           onClick={handleSendMessage}
           disabled={!newMessage.trim() || !isConnected}
           aria-label="Send message"

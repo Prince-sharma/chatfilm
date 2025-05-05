@@ -179,20 +179,18 @@ export default function ChatMessage({
             </div>
           )}
         </div>
-        {/* Always render the seen status container to reserve space, but conditionally show content */}
-        {isUser && (
-          <div className="h-5 mt-1 text-xs overflow-hidden">
-            {isLastSeenByOther && message.seen && (
-              <span 
-                className={cn(
-                  "text-xs text-muted-foreground flex items-center transition-opacity duration-200",
-                  seenVisible ? "opacity-100" : "opacity-0"
-                )}
-              >
-                Seen {formatTime(message.timestamp)}
-                <CheckCheck size={12} className="ml-1 text-primary" />
-              </span>
-            )}
+        {/* Only render the seen container when needed and make it compact */}
+        {isUser && isLastSeenByOther && message.seen && (
+          <div className="h-4 mt-0.5 text-xs overflow-hidden">
+            <span 
+              className={cn(
+                "text-xs text-muted-foreground flex items-center transition-opacity duration-200",
+                seenVisible ? "opacity-100" : "opacity-0"
+              )}
+            >
+              Seen {formatTime(message.timestamp)}
+              <CheckCheck size={12} className="ml-1 text-primary" />
+            </span>
           </div>
         )}
       </div>
