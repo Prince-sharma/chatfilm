@@ -12,40 +12,71 @@ export default function DaySeparator({ text, onDelete, onDragEnd }: DaySeparator
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartY, setDragStartY] = useState(0);
   const [dragCurrentY, setDragCurrentY] = useState(0);
-  const [isLongPress, setIsLongPress] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const [showDeleteIndicator, setShowDeleteIndicator] = useState(false);
   const separatorRef = useRef<HTMLDivElement>(null);
-
-  // Long press handlers for deletion
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
+  const lastClickTime = useRef<number>(0);
+  
+  // Handle double-click for deletion
+  const handleClick = (e: React.MouseEvent) => {
+    // Prevent click propagation to parent elements
+    e.stopPropagation();
+    
+    // Only handle if not dragging
+    if (isDragging) return;
+    
+    const currentTime = new Date().getTime();
+    const timeDiff = currentTime - lastClickTime.current;
+    
+    // Check if this is a double-click (less than 300ms between clicks)
+    if (timeDiff < 300 && timeDiff > 0) {
+      // Double-click detected
+      setShowDeleteIndicator(true);
+      setTimeout(() => {
+        handleDelete();
+      }, 100);
     }
     
-    longPressTimer.current = setTimeout(() => {
-      setIsLongPress(true);
-      e.preventDefault();
-    }, 5000); // 5 seconds for long press
+    lastClickTime.current = currentTime;
+  };
+  
+  // For mobile - handle double tap
+  const handleTap = (e: React.TouchEvent) => {
+    // Only handle if not dragging
+    if (isDragging) return;
+    
+    const currentTime = new Date().getTime();
+    const timeDiff = currentTime - lastClickTime.current;
+    
+    // Check if this is a double-tap (less than 300ms between taps)
+    if (timeDiff < 300 && timeDiff > 0) {
+      // Double-tap detected
+      setShowDeleteIndicator(true);
+      setTimeout(() => {
+        handleDelete();
+      }, 100);
+    }
+    
+    lastClickTime.current = currentTime;
   };
 
+  // Dragging handlers
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Start drag if left mouse button
+    // Start drag if left mouse button and not double-clicking
     if (e.button === 0) {
       e.preventDefault();
       setIsDragging(true);
       setDragStartY(e.clientY);
       setDragCurrentY(e.clientY);
-      
-      // Also start long press timer
-      if (longPressTimer.current) {
-        clearTimeout(longPressTimer.current);
-      }
-      
-      longPressTimer.current = setTimeout(() => {
-        setIsLongPress(true);
-      }, 5000); // 5 seconds for long press
     }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // Start drag
+    const touch = e.touches[0];
+    setIsDragging(true);
+    setDragStartY(touch.clientY);
+    setDragCurrentY(touch.clientY);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -54,23 +85,11 @@ export default function DaySeparator({ text, onDelete, onDragEnd }: DaySeparator
       setDragCurrentY(touch.clientY);
       e.preventDefault();
     }
-    
-    // Cancel long press if moving
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isDragging) {
       setDragCurrentY(e.clientY);
-    }
-    
-    // Cancel long press if moving
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
     }
   };
 
@@ -79,16 +98,6 @@ export default function DaySeparator({ text, onDelete, onDragEnd }: DaySeparator
       onDragEnd(dragCurrentY);
     }
     setIsDragging(false);
-    
-    if (isLongPress && onDelete) {
-      handleDelete();
-    }
-    setIsLongPress(false);
-    
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
   };
 
   const handleMouseUp = () => {
@@ -96,16 +105,6 @@ export default function DaySeparator({ text, onDelete, onDragEnd }: DaySeparator
       onDragEnd(dragCurrentY);
     }
     setIsDragging(false);
-    
-    if (isLongPress && onDelete) {
-      handleDelete();
-    }
-    setIsLongPress(false);
-    
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
   };
 
   const handleDelete = () => {
@@ -143,15 +142,6 @@ export default function DaySeparator({ text, onDelete, onDragEnd }: DaySeparator
     return undefined;
   }, [isDragging, dragCurrentY, onDragEnd]);
 
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      if (longPressTimer.current) {
-        clearTimeout(longPressTimer.current);
-      }
-    };
-  }, []);
-
   // Calculate transform for dragging
   const getTransformStyle = () => {
     if (isDragging) {
@@ -165,7 +155,7 @@ export default function DaySeparator({ text, onDelete, onDragEnd }: DaySeparator
     <div 
       ref={separatorRef}
       className={cn(
-        "flex items-center justify-center my-4 py-1 transition-all duration-300 ease-in-out",
+        "flex items-center justify-center my-2 py-0 transition-all duration-300 ease-in-out",
         isDragging ? "opacity-70 cursor-grabbing z-10" : "cursor-grab",
         isDeleting ? "scale-90 opacity-0" : "scale-100 opacity-100"
       )}
@@ -173,18 +163,19 @@ export default function DaySeparator({ text, onDelete, onDragEnd }: DaySeparator
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
+      onClick={handleClick}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
       <div className={cn(
-        "bg-muted text-muted-foreground text-xs font-medium rounded-full px-3 py-1 relative",
-        isLongPress ? "ring-2 ring-destructive ring-offset-2 ring-offset-background" : ""
+        "bg-muted text-muted-foreground text-sm font-medium rounded-full px-4 py-1.5 relative",
+        showDeleteIndicator ? "ring-2 ring-destructive ring-offset-2 ring-offset-background" : ""
       )}>
         {text}
-        {isLongPress && (
-          <div className="absolute -top-2 -left-2 bg-destructive text-destructive-foreground rounded-full p-1 shadow-lg">
-            <Trash2 size={12} />
+        {showDeleteIndicator && (
+          <div className="absolute -top-2 -left-2 bg-destructive text-destructive-foreground rounded-full p-1.5 shadow-lg">
+            <Trash2 size={14} />
           </div>
         )}
       </div>

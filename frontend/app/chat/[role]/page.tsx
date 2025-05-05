@@ -442,23 +442,23 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-dvh flex-col bg-background">
-      <header className="flex flex-shrink-0 items-center justify-between border-b border-border bg-card p-3 shadow-md">
+      <header className="flex flex-shrink-0 items-center justify-between border-b border-border bg-card p-4 shadow-md">
         <div className="flex items-center">
           <Button variant="ghost" size="icon" className="mr-2 text-foreground/80 hover:bg-secondary" onClick={() => router.push("/")}>
-            <ArrowLeft size={24} />
+            <ArrowLeft size={26} />
           </Button>
           <div className="flex cursor-pointer items-center" onClick={handleProfileClick}>
-            <div className="relative h-10 w-10">
+            <div className="relative h-11 w-11">
               <Image
-                src={`https://ui-avatars.com/api/?name=${otherPerson}&background=random&color=fff&size=40`}
+                src={`https://ui-avatars.com/api/?name=${otherPerson}&background=random&color=fff&size=44`}
                 alt={otherPerson}
                 className="rounded-full object-cover"
-                width={40}
-                height={40}
+                width={44}
+                height={44}
               />
             </div>
             <div className="ml-3">
-              <h2 className="text-lg font-semibold capitalize text-foreground">{otherPerson}</h2>
+              <h2 className="text-xl font-semibold capitalize text-foreground">{otherPerson}</h2>
             </div>
           </div>
         </div>
@@ -472,14 +472,14 @@ export default function ChatPage() {
             )}
             onClick={() => setIsMuted(!isMuted)}
           >
-            {isMuted ? <BellOff size={20} /> : <Bell size={20} />}
+            {isMuted ? <BellOff size={22} /> : <Bell size={22} />}
           </Button>
         </div>
       </header>
 
       <div 
         ref={chatContainerRef} 
-        className="relative flex-1 overflow-y-auto p-3 pb-1 sm:pb-2"
+        className="relative flex-1 overflow-y-auto p-3 pb-1 sm:p-4"
       >
         <ChatBackground role={role} />
         <div className="relative z-10 space-y-1 pb-1">
@@ -552,8 +552,8 @@ export default function ChatPage() {
                 {index < messages.length - 1 && (
                   <div 
                     className={cn(
-                      "h-3 w-full cursor-pointer transition-colors duration-200",
-                      clickCount > 0 && insertPosition === index ? "bg-muted/30 hover:bg-muted/40" : "hover:bg-muted/20"
+                      "h-1 w-full cursor-pointer transition-colors duration-200",
+                      clickCount > 0 && insertPosition === index ? "bg-muted/40 hover:bg-muted/50" : "hover:bg-muted/30"
                     )}
                     onClick={(e) => handleClickArea(e, index)}
                   />
@@ -576,15 +576,15 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <div className="flex flex-shrink-0 items-center border-t border-border bg-card p-2 pt-1 sm:p-2">
+      <div className="flex flex-shrink-0 items-center border-t border-border bg-card p-2 sm:p-3">
         <Button
           variant="ghost"
           size="icon"
-          className="mr-1 h-10 w-10 flex-shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform"
+          className="mr-1 h-12 w-12 flex-shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform"
           onClick={handleCameraClick}
           aria-label="Take a photo"
         >
-          <Camera size={20} />
+          <Camera size={24} />
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
@@ -600,7 +600,7 @@ export default function ChatPage() {
             ref={textareaRef}
             rows={1}
             placeholder="Message..."
-            className="w-full border bg-input py-1.5 px-4 text-base text-foreground placeholder:text-muted-foreground resize-none overflow-hidden focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none focus-visible:outline-none focus:border-input focus:bg-input min-h-[40px] leading-normal transition-all duration-200"
+            className="w-full border bg-input py-2 px-4 text-lg text-foreground placeholder:text-muted-foreground resize-none overflow-hidden focus:outline-none focus-visible:outline-none focus:border-input focus:bg-input min-h-[44px] leading-normal transition-all duration-200"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={(e) => {
@@ -618,12 +618,12 @@ export default function ChatPage() {
         <Button
           variant="ghost"
           size="icon"
-          className="ml-1 h-10 w-10 flex-shrink-0 rounded-full bg-primary text-primary-foreground active:scale-95 transition-transform"
+          className="ml-1 h-12 w-12 flex-shrink-0 rounded-full bg-primary text-primary-foreground active:scale-95 transition-transform"
           onClick={handleSendMessage}
           disabled={!newMessage.trim() || !isConnected}
           aria-label="Send message"
         >
-          <SendHorizontal size={20} />
+          <SendHorizontal size={24} />
         </Button>
       </div>
 
