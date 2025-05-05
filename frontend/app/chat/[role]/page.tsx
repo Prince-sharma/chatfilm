@@ -15,12 +15,12 @@ import {
 } from "lucide-react"
 import ChatMessage from "@/components/chat-message"
 import ImageViewer from "@/components/image-viewer"
-import ImageUploadMenu from "@/components/image-upload-menu"
 import { useRealTimeChat } from "@/hooks/use-real-time-chat"
 import ChatBackground from "@/components/chat-background"
 import { cn } from "@/lib/utils"
 import { formatTime } from "@/lib/utils"
 import { v4 as uuidv4 } from 'uuid'
+import imageCompression from 'browser-image-compression'
 import DaySeparator from "@/components/day-separator"
 import DaySeparatorDialog from "@/components/day-separator-dialog"
 
@@ -64,27 +64,17 @@ export default function ChatPage() {
   } = useRealTimeChat(role, otherPerson)
 
   const [viewingImage, setViewingImage] = useState<string | null>(null)
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [clickCount, setClickCount] = useState(0);
   const [clickTimeout, setClickTimeout] = useState<NodeJS.Timeout | null>(null);
   const [clickPosition, setClickPosition] = useState<{top: number, left: number} | null>(null);
   const [insertPosition, setInsertPosition] = useState<number | null>(null);
   const [separatorDialogOpen, setSeparatorDialogOpen] = useState(false);
-
-  // Refs for elements
-  const chatContainerRef = useRef<HTMLDivElement>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const prevScrollHeightRef = useRef<number>(0)
-  const lastMessageSeenRef = useRef<string | null>(null)
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const trippleClickTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  // Ref for day separator dialog
-  const dialogRef = useRef<HTMLDialogElement>(null)
-  // Refs for tracking message list changes
-  const messageListRef = useRef<HTMLDivElement>(null)
-  const messageHeightsRef = useRef<Map<string, number>>(new Map())
-  const observedMessagesRef = useRef<Set<string>>(new Set())
 
   // Detect mobile devices
   useEffect(() => {
@@ -114,21 +104,17 @@ export default function ChatPage() {
     }
   }, [messages, scrollToBottom, isMobile])
 
-  // Handle input focus
   const handleInputFocus = () => {
-    if (chatContainerRef.current) {
-      // On mobile, when keyboard appears, scroll to bottom after a delay
-      if (isMobile) {
-        requestAnimationFrame(() => {
-          scrollToBottom()
-        })
-      }
-    }
+    setIsKeyboardOpen(true)
+    // Delay scrolling to bottom to account for keyboard appearance
+    setTimeout(() => scrollToBottom('smooth'), isMobile ? 300 : 100)
   }
 
-  // Handle input blur (keyboard dismissed on mobile)
   const handleInputBlur = () => {
-    // Nothing specific needed here at the moment
+    // Only change keyboard state if we're not on mobile or if explicitly requested
+    if (!isMobile) {
+      setIsKeyboardOpen(false)
+    }
   }
 
   useEffect(() => {
@@ -161,14 +147,133 @@ export default function ChatPage() {
     }
   }, [messages, markAsSeen, otherPerson])
 
+  const handleCameraClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      console.log("No file selected or selection cancelled.");
+       if (fileInputRef.current) {
+         fileInputRef.current.value = "";
+       }
+      return;
+    }
+    
+    console.log("Original file selected:", file.name, file.type, file.size);
+    
+    // --- Image Compression --- 
+    const options = {
+      maxSizeMB: 0.5,          // Max size in MB (adjust as needed)
+      maxWidthOrHeight: 1024,  // Max width or height
+      useWebWorker: true,      // Use web worker for better performance
+      initialQuality: 0.7,     // Initial quality for compression
+    };
+
+    try {
+      console.log("Compressing image...");
+      const compressedFile = await imageCompression(file, options);
+      console.log("Compressed file:", compressedFile.name, compressedFile.type, compressedFile.size);
+
+      // --- Read Compressed File --- 
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        try {
+          if (event.target?.result) {
+            console.log("Compressed file read successfully, sending image...");
+            sendImage(event.target.result.toString());
+            // Keep focus after sending image
+            if (isMobile) {
+              requestAnimationFrame(() => {
+                textareaRef.current?.focus();
+              });
+            }
+          } else {
+            console.error("FileReader onload event target result is null after compression");
+          }
+        } catch (error) {
+           console.error("Error sending image after reading compressed file:", error);
+        } finally {
+          if (fileInputRef.current) {
+            fileInputRef.current.value = ""; 
+          }
+        }
+      };
+      
+      reader.onerror = (error) => {
+        console.error("Error reading compressed file:", error);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      };
+
+      reader.readAsDataURL(compressedFile);
+      
+    } catch (error) {
+      console.error("Image compression failed:", error);
+      // Optionally fall back to sending original or show error to user
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   const handleProfileClick = () => {
     router.push(`/profile/${otherPerson}`)
   }
 
+  // Keyboard focus management for mobile devices
+  useEffect(() => {
+    if (!isMobile || !textareaRef.current) return;
+    
+    // Keep keyboard up at all times on mobile by maintaining focus
+    const maintainFocus = () => {
+      if (document.activeElement !== textareaRef.current) {
+        textareaRef.current?.focus();
+      }
+    };
+    
+    // Set initial focus
+    maintainFocus();
+    
+    // Maintain focus after sending a message
+    const focusInterval = setInterval(maintainFocus, 300);
+    
+    // Re-focus when device becomes visible again
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setTimeout(maintainFocus, 100);
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearInterval(focusInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isMobile]);
+
   const handleSendMessage = () => {
     if (newMessage.trim()) {
-      // Clear input field first for immediate feedback
-      const msgToSend = newMessage.trim();
+      // Store message locally first for immediate optimistic update
+      const messageToSend = newMessage.trim();
+      const tempId = uuidv4();
+      const optimisticMessage = {
+        id: tempId,
+        sender: role,
+        content: messageToSend,
+        timestamp: new Date().toISOString(),
+        seen: false,
+        type: "text" as const
+      };
+      
+      // Add message to UI immediately
+      setMessages(prevMessages => [...prevMessages, optimisticMessage]);
+      
+      // Clear input field immediately
       setNewMessage('');
       
       // Focus immediately before any UI updates
@@ -176,16 +281,13 @@ export default function ChatPage() {
         textareaRef.current?.focus();
       }
       
-      // Then send the message
+      // Then send the message to the server
       sendMessage();
       
       // Ensure the textarea remains focused after message is sent
       if (isMobile) {
-        // Use multiple strategies to maintain focus
         requestAnimationFrame(() => {
           textareaRef.current?.focus();
-          // Double-ensure focus with a slight delay
-          setTimeout(() => textareaRef.current?.focus(), 10);
         });
       }
     }
@@ -366,23 +468,6 @@ export default function ChatPage() {
     };
   }, [clickTimeout]);
 
-  useEffect(() => {
-    return () => {
-      // Clean up timeouts on component unmount
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
-      if (trippleClickTimeoutRef.current) {
-        clearTimeout(trippleClickTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  // Handle image viewing
-  const handleImageClick = (imageUrl: string) => {
-    setViewingImage(imageUrl)
-  }
-
   return (
     <div className="flex h-dvh flex-col bg-background">
       <header className="flex flex-shrink-0 items-center justify-between border-b border-border bg-card p-4 shadow-md">
@@ -425,7 +510,7 @@ export default function ChatPage() {
         className="relative flex-1 overflow-y-auto p-3 pb-1 sm:p-4"
       >
         <ChatBackground role={role} />
-        <div className="relative z-10 space-y-1 pb-1">
+        <div className="relative z-10 space-y-0.5 pb-1">
           {(() => {
             let lastSeenIndex = -1;
             let lastUserMessageIndex = -1;
@@ -484,7 +569,7 @@ export default function ChatPage() {
                     <ChatMessage 
                       message={message} 
                       currentUser={role} 
-                      onImageClick={handleImageClick}
+                      onImageClick={setViewingImage}
                       onDeleteMessage={handleDeleteMessage} 
                       isLastSeenByOther={index === validLastSeenIndex} 
                     />
@@ -495,7 +580,7 @@ export default function ChatPage() {
                 {index < messages.length - 1 && (
                   <div 
                     className={cn(
-                      "h-1 w-full cursor-pointer transition-colors duration-200",
+                      "h-0.5 w-full cursor-pointer transition-colors duration-200",
                       clickCount > 0 && insertPosition === index ? "bg-muted/40 hover:bg-muted/50" : "hover:bg-muted/30"
                     )}
                     onClick={(e) => handleClickArea(e, index)}
@@ -520,24 +605,30 @@ export default function ChatPage() {
       </div>
 
       <div className="flex flex-shrink-0 items-center border-t border-border bg-card p-2 sm:p-3">
-        <ImageUploadMenu 
-          onImageSelected={(dataUrl) => {
-            sendImage(dataUrl);
-            // Ensure the textarea remains focused after sending image
-            if (isMobile) {
-              requestAnimationFrame(() => {
-                textareaRef.current?.focus();
-              });
-            }
-          }}
-        />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="mr-1 h-12 w-12 flex-shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform"
+          onClick={handleCameraClick}
+          aria-label="Take a photo"
+        >
+          <Camera size={24} />
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            capture="environment"
+            className="hidden"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+          />
+        </Button>
 
         <div className="relative flex-1 mx-1">
           <Textarea
             ref={textareaRef}
             rows={1}
             placeholder="Message..."
-            className="w-full border bg-input py-2 px-4 text-lg text-foreground placeholder:text-muted-foreground resize-none overflow-hidden focus:outline-none focus-visible:outline-none focus:border-input focus:bg-input focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[44px] leading-normal transition-all duration-200"
+            className="w-full border bg-input py-2 px-4 text-lg text-foreground placeholder:text-muted-foreground resize-none overflow-hidden focus:outline-none focus-visible:outline-none focus:border-input focus:bg-input focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:ring-offset-0 min-h-[44px] leading-normal transition-all duration-200"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={(e) => {

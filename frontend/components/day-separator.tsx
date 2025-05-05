@@ -155,7 +155,7 @@ export default function DaySeparator({ text, onDelete, onDragEnd }: DaySeparator
     <div 
       ref={separatorRef}
       className={cn(
-        "flex items-center justify-center my-2 py-0 transition-all duration-300 ease-in-out",
+        "flex items-center justify-center my-1 py-0 transition-all duration-300 ease-in-out",
         isDragging ? "opacity-70 cursor-grabbing z-10" : "cursor-grab",
         isDeleting ? "scale-90 opacity-0" : "scale-100 opacity-100"
       )}

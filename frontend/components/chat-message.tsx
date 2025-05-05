@@ -122,7 +122,7 @@ export default function ChatMessage({
   return (
     <div
       className={cn(
-        "group mb-2 flex w-full origin-bottom transition-all duration-300 ease-in-out will-change-transform will-change-opacity",
+        "group mb-1 flex w-full origin-bottom transition-all duration-300 ease-in-out will-change-transform will-change-opacity",
         isUser ? "justify-end" : "justify-start",
         isDeleting 
           ? "scale-90 opacity-0 translate-y-2" 
@@ -140,7 +140,7 @@ export default function ChatMessage({
             isUser
               ? "bg-primary text-primary-foreground"
               : "bg-card text-foreground shadow-sm border border-border/30",
-            message.type === 'image' ? 'p-0 overflow-hidden' : 'px-4 py-2.5',
+            message.type === 'image' ? 'p-0 overflow-hidden' : 'px-4 py-2',
             showDeleteIndicator && isUser ? "ring-2 ring-destructive ring-offset-2 ring-offset-background" : ""
           )}
         >
