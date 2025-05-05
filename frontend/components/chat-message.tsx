@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 import { format } from "date-fns"
-import { Copy, Check, MessageSquare, Recycle, CheckCheck, Trash2 } from "lucide-react"
+import { Copy, Check, MessageSquare, Recycle, CheckCheck, Trash2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Message } from "@/lib/chat-data"
 import { Button } from "@/components/ui/button"
@@ -36,13 +36,15 @@ export default function ChatMessage({
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [showDeleteIndicator, setShowDeleteIndicator] = useState(false)
-  const lastClickTime = useRef<number>(0)
-  // Track if seen status is visible for animation
-  const [seenVisible, setSeenVisible] = useState(false)
-
+  const [showDeleteButton, setShowDeleteButton] = useState(false)
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null)
+  const messageRef = useRef<HTMLDivElement>(null)
+  
   const isUser = message.sender === currentUser
   const displayName = isUser ? "You" : aiName || message.sender
+
+  // Track if seen status is visible for animation
+  const [seenVisible, setSeenVisible] = useState(false)
 
   // Handle smooth transition for seen status
   useEffect(() => {
@@ -72,55 +74,86 @@ export default function ChatMessage({
     }
   }
   
-  // Handle double-click to delete
-  const handleClick = (e: React.MouseEvent) => {
-    if (!isUser || !onDeleteMessage) return;
-    
-    const currentTime = new Date().getTime();
-    const timeDiff = currentTime - lastClickTime.current;
-    
-    // Check if this is a double-click (less than 300ms between clicks)
-    if (timeDiff < 300 && timeDiff > 0) {
-      // Double-click detected
-      setShowDeleteIndicator(true);
-      setTimeout(() => {
-        handleDelete();
-      }, 100);
-    }
-    
-    lastClickTime.current = currentTime;
-  };
-  
-  // For mobile - handle double tap
-  const handleTap = (e: React.TouchEvent) => {
-    if (!isUser || !onDeleteMessage) return;
-    
-    const currentTime = new Date().getTime();
-    const timeDiff = currentTime - lastClickTime.current;
-    
-    // Check if this is a double-tap (less than 300ms between taps)
-    if (timeDiff < 300 && timeDiff > 0) {
-      // Double-tap detected
-      setShowDeleteIndicator(true);
-      setTimeout(() => {
-        handleDelete();
-      }, 100);
-    }
-    
-    lastClickTime.current = currentTime;
+  // --- Press and Hold Logic --- 
+  const startLongPressTimer = (e?: React.TouchEvent | React.MouseEvent) => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    longPressTimer.current = setTimeout(() => {
+      setShowDeleteButton(true);
+      // Prevent context menu on long press (desktop)
+      if (e && 'preventDefault' in e) e.preventDefault(); 
+    }, 3000); // 3 seconds
   };
 
+  const clearLongPressTimer = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+  
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!isUser || !onDeleteMessage) return;
+    startLongPressTimer(e);
+  };
+
+  const handleMouseUp = () => {
+    clearLongPressTimer();
+  };
+  
+  const handleTouchStart = (e: React.TouchEvent) => {
+     if (!isUser || !onDeleteMessage) return;
+     startLongPressTimer(e);
+  };
+  
+  const handleTouchEnd = () => {
+     clearLongPressTimer();
+  };
+  
+  // Cancel timer if mouse leaves the element while pressing
+  const handleMouseLeave = () => {
+     clearLongPressTimer();
+  };
+  
+  // Cancel timer if touch moves significantly
+  const handleTouchMove = (e: React.TouchEvent) => {
+    // Basic check: if touch moves more than a few pixels, cancel timer
+    // A more robust solution might track initial touch position
+    clearLongPressTimer();
+  };
+
+  // --- Delete Action --- 
   const handleDelete = () => {
     if (isUser && onDeleteMessage) {
       setIsDeleting(true)
+      // Hide button immediately for smoother animation
+      setShowDeleteButton(false);
       setTimeout(() => {
-        onDeleteMessage(message.id)
-      }, 300)
+        onDeleteMessage(message.clientId || message.id)
+      }, 300) // Animation duration
     }
-  }
+  };
+  
+  // Hide delete button if clicking outside
+  useEffect(() => {
+    if (!showDeleteButton) return;
+    
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (messageRef.current && !messageRef.current.contains(event.target as Node)) {
+        setShowDeleteButton(false);
+      }
+    };
+    
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [showDeleteButton]);
 
   return (
     <div
+      ref={messageRef} // Ref for detecting outside clicks
       className={cn(
         "group mb-1 flex w-full origin-bottom transition-all duration-300 ease-in-out will-change-transform will-change-opacity",
         isUser ? "justify-end" : "justify-start",
@@ -128,22 +161,47 @@ export default function ChatMessage({
           ? "scale-90 opacity-0 translate-y-2" 
           : "scale-100 opacity-100 animate-message-in"
       )}
-      onClick={handleClick}
-      onTouchStart={handleTap}
-      onContextMenu={(e) => e.preventDefault()}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave} // Clear timer if mouse leaves
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchMove} // Clear timer if touch moves
+      onContextMenu={(e) => { 
+        // Prevent default only if the delete button is about to show or shown
+        if (showDeleteButton || longPressTimer.current) e.preventDefault(); 
+      }}
     >
-      <div className={cn("flex flex-col", isUser ? "items-end" : "items-start")}>
+      <div className={cn("flex flex-col relative", isUser ? "items-end" : "items-start")}>
+        {/* Delete Button - positioned absolutely */} 
+        {showDeleteButton && isUser && (
+          <Button
+            variant="destructive"
+            size="icon"
+            className="absolute -top-4 -right-2 h-7 w-7 rounded-full z-10 shadow-lg"
+            onClick={(e) => { 
+              e.stopPropagation(); // Prevent triggering message click
+              handleDelete(); 
+            }}
+          >
+            <Trash2 size={14} />
+          </Button>
+        )}
+        
+        {/* Message Bubble */} 
         <div
           style={{ willChange: 'transform, opacity' }}
           className={cn(
-            "relative inline-block rounded-[20px] text-base max-w-[80vw] lg:max-w-lg",
+            "relative inline-block rounded-[20px] text-lg max-w-[80vw] lg:max-w-lg transition-transform duration-200", // Added text-lg
             isUser
               ? "bg-primary text-primary-foreground"
               : "bg-card text-foreground shadow-sm border border-border/30",
             message.type === 'image' ? 'p-0 overflow-hidden' : 'px-4 py-2',
-            showDeleteIndicator && isUser ? "ring-2 ring-destructive ring-offset-2 ring-offset-background" : ""
+            // Apply slight scale effect when delete button is shown
+            showDeleteButton && isUser ? "scale-[0.98]" : "scale-100"
           )}
         >
+          {/* Message Content (Text or Image) */}
           {message.type === "image" ? (
             <div className="cursor-pointer relative" onClick={handleImageClick}>
               <Image
@@ -155,15 +213,11 @@ export default function ChatMessage({
               />
             </div>
           ) : (
-            <span className="whitespace-pre-wrap break-words text-lg">{message.content}</span>
-          )}
-          {showDeleteIndicator && isUser && (
-            <div className="absolute -top-2 -left-2 bg-destructive text-destructive-foreground rounded-full p-1.5 shadow-lg">
-              <Trash2 size={14} />
-            </div>
+            <span className="whitespace-pre-wrap break-words">{message.content}</span>
           )}
         </div>
-        {/* Only render the seen container when needed and make it compact */}
+        
+        {/* Seen Status (no change) */} 
         {isUser && isLastSeenByOther && message.seen && (
           <div className="h-5 mt-0.5 text-sm overflow-hidden">
             <span 

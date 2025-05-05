@@ -191,7 +191,9 @@ export default function ChatPage() {
             const imageDataUrl = event.target.result.toString();
             const tempId = uuidv4();
 
-            // Optimistic update for image
+            // Prevent blur during state updates
+            if (isMobile) textareaRef.current?.blur();
+            
             const optimisticImageMessage: Message = {
               id: tempId,
               clientId: tempId,
@@ -202,17 +204,15 @@ export default function ChatPage() {
               type: "image" as const,
             };
             setMessages(prev => [...prev, optimisticImageMessage]);
-            console.log("Optimistic image added, sending...");
-
-            // Send image with content and tempId
-            sendImage(imageDataUrl, tempId);
-
-            // Keep focus *only on mobile* after sending image
+            
+            // Refocus after state updates
             if (isMobile) {
-               setTimeout(() => {
-                  textareaRef.current?.focus(); 
-               }, 10); 
+               requestAnimationFrame(() => {
+                  textareaRef.current?.focus();
+               });
             }
+
+            sendImage(imageDataUrl, tempId);
 
           } else {
             console.error("FileReader error after compression");
@@ -246,19 +246,24 @@ export default function ChatPage() {
         id: tempId, clientId: tempId, sender: role, content: contentToSend,
         timestamp: new Date().toISOString(), seen: false, type: "text" as const,
       };
+
+      // Prevent blur during state updates
+      if (isMobile) textareaRef.current?.blur(); // Temporarily blur to prevent flicker
+      
+      // Perform state updates *synchronously* if possible
       setMessages(prevMessages => [...prevMessages, optimisticMessage]);
-      setNewMessage('');
-
-      // Send the message
-      sendMessage(contentToSend, tempId);
-
-      // Keep focus after sending *only on mobile*
+      setNewMessage(''); // Clear input immediately
+      
+      // Refocus after state updates have settled
       if (isMobile) {
-        // Request focus after a short delay to ensure it happens after potential DOM updates
-        setTimeout(() => {
-           textareaRef.current?.focus(); 
-        }, 10); 
+        // Use requestAnimationFrame for focus timing after render
+        requestAnimationFrame(() => {
+          textareaRef.current?.focus();
+        });
       }
+
+      // Send the message to the server (async, doesn't block focus)
+      sendMessage(contentToSend, tempId);
     }
   };
 
