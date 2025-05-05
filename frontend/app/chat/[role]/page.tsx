@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Camera,
   ArrowLeft,
@@ -19,6 +19,7 @@ import ImageViewer from "@/components/image-viewer"
 import { useRealTimeChat } from "@/hooks/use-real-time-chat"
 import ChatBackground from "@/components/chat-background"
 import { cn } from "@/lib/utils"
+import { formatTime } from "@/lib/utils"
 
 type ValidRole = 'akash' | 'divyangini'
 
@@ -62,24 +63,49 @@ export default function ChatPage() {
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Detect mobile devices
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const checkIsMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      setIsMobile(checkIsMobile);
+    }
+  }, []);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior })
   }, [])
 
+  // Enhanced scroll behavior
   useEffect(() => {
-    scrollToBottom("auto")
-  }, [messages, scrollToBottom])
+    // Use instant scroll for first load, smooth for updates
+    const behavior = messages.length <= 1 ? "auto" : "smooth";
+    scrollToBottom(behavior);
+    
+    // For mobile, make sure we handle the virtual keyboard properly
+    if (isMobile) {
+      // Small delay to let keyboard appear/layout adjust before scrolling
+      const timer = setTimeout(() => {
+        scrollToBottom("smooth");
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [messages, scrollToBottom, isMobile])
 
   const handleInputFocus = () => {
     setIsKeyboardOpen(true)
-    setTimeout(() => scrollToBottom('smooth'), 100)
+    // Delay scrolling to bottom to account for keyboard appearance
+    setTimeout(() => scrollToBottom('smooth'), isMobile ? 300 : 100)
   }
 
   const handleInputBlur = () => {
-    setIsKeyboardOpen(false)
+    // Only change keyboard state if we're not on mobile or if explicitly requested
+    if (!isMobile) {
+      setIsKeyboardOpen(false)
+    }
   }
 
   useEffect(() => {
@@ -127,15 +153,18 @@ export default function ChatPage() {
           if (event.target?.result) {
             console.log("File read successfully, sending image...");
             sendImage(event.target.result.toString());
+            // Keep focus after sending image
+            if (isMobile) {
+              requestAnimationFrame(() => {
+                textareaRef.current?.focus();
+              });
+            }
           } else {
             console.error("FileReader onload event target result is null");
-            // Optionally show an error to the user
           }
         } catch (error) {
            console.error("Error sending image after reading:", error);
-           // Optionally show an error to the user
         } finally {
-          // Reset the input value to allow selecting the same file again
           if (fileInputRef.current) {
             fileInputRef.current.value = ""; 
           }
@@ -144,8 +173,6 @@ export default function ChatPage() {
       
       reader.onerror = (error) => {
         console.error("Error reading file:", error);
-        // Optionally show an error to the user
-        // Reset the input value even if reading fails
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
@@ -156,15 +183,12 @@ export default function ChatPage() {
         reader.readAsDataURL(file);
       } catch (error) {
         console.error("Error initiating file read:", error);
-        // Optionally show an error to the user
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
       }
     } else {
       console.log("No file selected or selection cancelled.");
-       // Reset the input value if no file was selected 
-       // (e.g., user cancelled camera)
        if (fileInputRef.current) {
          fileInputRef.current.value = "";
        }
@@ -177,23 +201,98 @@ export default function ChatPage() {
 
   const handleSendMessage = () => {
     if (newMessage.trim()) {
-      sendMessage()
-      inputRef.current?.focus()
+      // Store current text before clearing input
+      // const currentText = newMessage.trim();
+      
+      // Clear input field first for immediate feedback
+      setNewMessage('');
+      
+      // Then send the message
+      sendMessage();
+      
+      // Ensure the textarea remains focused to keep keyboard up on mobile
+      if (isMobile) {
+        requestAnimationFrame(() => {
+          textareaRef.current?.focus();
+        });
+      }
     }
   }
 
   const handleDeleteMessage = (messageId: string) => {
-    // Call the hook's delete function and handle optimistic UI updates
     if (messageId) {
       console.log(`Deleting message with ID: ${messageId}`);
       deleteMessage(messageId);
       
-      // Focus back on the input field after deletion for better UX
+      // Focus back on the input field after deletion
       setTimeout(() => {
-        inputRef.current?.focus();
+        textareaRef.current?.focus();
       }, 300);
     }
   }
+
+  // Auto-resize Textarea height and adjust border radius dynamically
+  useEffect(() => {
+    if (textareaRef.current) {
+      // Reset height to auto first to shrink properly if text is deleted
+      textareaRef.current.style.height = 'auto';
+      // Set min-height to match the screenshot
+      const minHeight = 40; // Initial height for empty or short messages
+      
+      // Calculate new height without max limit
+      const scrollHeight = textareaRef.current.scrollHeight;
+      const newHeight = Math.max(minHeight, scrollHeight);
+      textareaRef.current.style.height = `${newHeight}px`;
+      
+      // Dynamically adjust border radius based on height
+      // Start with full rounded (24px) for short messages
+      // Gradually decrease to a minimum radius (8px) as the message gets longer
+      const textareaParent = textareaRef.current.parentElement;
+      if (textareaParent) {
+        // Determine how "tall" the message is
+        const heightRatio = Math.min(1, minHeight / newHeight); // 1 for short, approaching 0 for very tall
+        
+        // Calculate border radius: from 9999px (pill) to 12px (rounded rectangle)
+        // Using 'rounded-full' (9999px) for short messages, reducing for longer ones
+        const maxRadius = 9999; // Full rounded initially (rounded-full)
+        const minRadius = 12;   // Minimum radius for tall messages
+        
+        // Apply a more dramatic curve to the transition
+        const radiusReduction = Math.pow(1 - heightRatio, 2); // Squared curve for smoother transition
+        const newRadius = maxRadius - (radiusReduction * (maxRadius - minRadius));
+        
+        // Apply the calculated radius to the textarea
+        textareaRef.current.style.borderRadius = `${Math.min(newRadius, 9999)}px`;
+      }
+    }
+  }, [newMessage]); // Re-run when message changes
+
+  // Keep focus on the textarea to prevent keyboard dismissal on mobile
+  useEffect(() => {
+    if (!isMobile || !textareaRef.current) return;
+    
+    // Set initial focus
+    const focusTextarea = () => {
+      textareaRef.current?.focus();
+    };
+    
+    // Focus after a short delay to ensure the component is fully rendered
+    const initialFocusTimer = setTimeout(focusTextarea, 500);
+    
+    // Set up event listeners to maintain focus on mobile
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setTimeout(focusTextarea, 300);
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearTimeout(initialFocusTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isMobile]);
 
   return (
     <div className="flex h-dvh flex-col bg-background">
@@ -235,21 +334,48 @@ export default function ChatPage() {
       <div ref={chatContainerRef} className="relative flex-1 overflow-y-auto p-3 sm:p-4">
         <ChatBackground role={role} />
         <div className="relative z-10 space-y-1.5 pb-3 sm:pb-4">
-          {messages.map((message) => (
-            <div 
-              key={message.id} 
-              data-message-id={message.id} 
-              data-sender={message.sender}
-              className="transition-all duration-300 ease-in-out"
-            >
-              <ChatMessage 
-                message={message} 
-                currentUser={role} 
-                onImageClick={setViewingImage}
-                onDeleteMessage={handleDeleteMessage} 
-              />
-            </div>
-          ))}
+          {(() => {
+            let lastSeenIndex = -1;
+            let lastUserMessageIndex = -1;
+            
+            // First, find the last message from the current user
+            for (let i = messages.length - 1; i >= 0; i--) {
+              if (messages[i].sender === role) {
+                lastUserMessageIndex = i;
+                break;
+              }
+            }
+            
+            // Then find the last seen message from the current user
+            for (let i = messages.length - 1; i >= 0; i--) {
+              if (messages[i].sender === role && messages[i].seen) {
+                lastSeenIndex = i;
+                break;
+              }
+            }
+            
+            // Only show "Seen" if:
+            // 1. The last seen message is also the last message from the user in the conversation
+            // 2. There are no messages from the other person after this message
+            const validLastSeenIndex = lastSeenIndex === lastUserMessageIndex ? lastSeenIndex : -1;
+
+            return messages.map((message, index) => (
+              <div 
+                key={message.id} 
+                data-message-id={message.id} 
+                data-sender={message.sender}
+                className="transition-all duration-300 ease-in-out"
+              >
+                <ChatMessage 
+                  message={message} 
+                  currentUser={role} 
+                  onImageClick={setViewingImage}
+                  onDeleteMessage={handleDeleteMessage} 
+                  isLastSeenByOther={index === validLastSeenIndex} 
+                />
+              </div>
+            ))
+          })()}
           {isTyping && (
             <div className={`flex justify-start animate-pulse`}>
               <div className="ml-2 rounded-full bg-secondary px-4 py-2 shadow-md">
@@ -269,11 +395,11 @@ export default function ChatPage() {
         <Button
           variant="ghost"
           size="icon"
-          className="mr-2 h-12 w-12 flex-shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform duration-200"
+          className="mr-2 h-10 w-10 flex-shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform"
           onClick={handleCameraClick}
           aria-label="Take a photo"
         >
-          <Camera size={22} />
+          <Camera size={20} />
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
@@ -284,16 +410,22 @@ export default function ChatPage() {
           />
         </Button>
 
-        <div className="relative flex-1">
-          <Input
-            ref={inputRef}
-            type="text"
+        <div className="relative flex-1 mx-1">
+          <Textarea
+            ref={textareaRef}
+            rows={1}
             placeholder="Message..."
-            className="w-full rounded-full border bg-input h-12 py-3 pl-4 pr-12 text-base text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+            className="w-full border bg-input py-2 px-4 text-base text-foreground placeholder:text-muted-foreground resize-none overflow-hidden focus-visible:ring-0 focus-visible:ring-offset-0 border-input min-h-[40px] leading-normal transition-all duration-200"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
             onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
             autoComplete="off"
           />
         </div>
@@ -301,12 +433,12 @@ export default function ChatPage() {
         <Button
           variant="ghost"
           size="icon"
-          className="ml-2 h-12 w-12 flex-shrink-0 rounded-full bg-primary text-primary-foreground transition-all duration-200 hover:bg-primary/90 disabled:opacity-50 disabled:active:scale-100"
+          className="ml-2 h-10 w-10 flex-shrink-0 rounded-full bg-primary text-primary-foreground active:scale-95 transition-transform"
           onClick={handleSendMessage}
           disabled={!newMessage.trim() || !isConnected}
           aria-label="Send message"
         >
-          <SendHorizontal size={24} />
+          <SendHorizontal size={20} />
         </Button>
       </div>
 

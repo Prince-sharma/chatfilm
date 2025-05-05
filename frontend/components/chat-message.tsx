@@ -7,6 +7,7 @@ import { Copy, Check, MessageSquare, Recycle, CheckCheck, Trash2 } from "lucide-
 import { cn } from "@/lib/utils"
 import { Message } from "@/lib/chat-data"
 import { Button } from "@/components/ui/button"
+import { formatTime } from "@/lib/utils"
 
 interface ChatMessageProps {
   message: Message
@@ -18,6 +19,7 @@ interface ChatMessageProps {
   isLoadingRegenerate?: boolean
   regeneratingId?: string
   onDeleteMessage?: (id: string) => void
+  isLastSeenByOther?: boolean
 }
 
 export default function ChatMessage({
@@ -30,32 +32,31 @@ export default function ChatMessage({
   isLoadingRegenerate = false,
   regeneratingId,
   onDeleteMessage,
+  isLastSeenByOther,
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false)
   const [isLongPress, setIsLongPress] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const longPressTimer = useRef<NodeJS.Timeout | null>(null)
-  const [showSeen, setShowSeen] = useState(false)
-  const previousSeenStatus = useRef(message.seen)
+  // Track if seen status is visible for animation
+  const [seenVisible, setSeenVisible] = useState(false)
 
   const isUser = message.sender === currentUser
   const displayName = isUser ? "You" : aiName || message.sender
 
+  // Handle smooth transition for seen status
   useEffect(() => {
-    if (message.seen && !previousSeenStatus.current && isUser) {
-      setShowSeen(true)
+    // If this is the last seen message by the other user
+    if (isUser && isLastSeenByOther && message.seen) {
+      // Slight delay to ensure the message is rendered first
       const timer = setTimeout(() => {
-        setShowSeen(false)
-      }, 1500)
-
-      previousSeenStatus.current = true
-
-      return () => clearTimeout(timer)
+        setSeenVisible(true);
+      }, 50);
+      return () => clearTimeout(timer);
+    } else {
+      setSeenVisible(false);
     }
-    if (message.seen !== previousSeenStatus.current) {
-      previousSeenStatus.current = message.seen
-    }
-  }, [message.seen, isUser])
+  }, [isUser, isLastSeenByOther, message.seen]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content)
@@ -178,8 +179,21 @@ export default function ChatMessage({
             </div>
           )}
         </div>
-        {isUser && showSeen && (
-          <span className="text-xs text-muted-foreground mt-1">Seen</span>
+        {/* Always render the seen status container to reserve space, but conditionally show content */}
+        {isUser && (
+          <div className="h-5 mt-1 text-xs overflow-hidden">
+            {isLastSeenByOther && message.seen && (
+              <span 
+                className={cn(
+                  "text-xs text-muted-foreground flex items-center transition-opacity duration-200",
+                  seenVisible ? "opacity-100" : "opacity-0"
+                )}
+              >
+                Seen {formatTime(message.timestamp)}
+                <CheckCheck size={12} className="ml-1 text-primary" />
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>
