@@ -77,7 +77,7 @@ export default function ChatMessage({
     if (!isUser) return
     longPressTimer.current = setTimeout(() => {
       setIsLongPress(true)
-    }, 500)
+    }, 5000)
   }
 
   const handleMouseUp = () => {
@@ -101,7 +101,7 @@ export default function ChatMessage({
     longPressTimer.current = setTimeout(() => {
       setIsLongPress(true)
       e.preventDefault() // Prevent default touch actions once long press is detected
-    }, 500)
+    }, 5000)
   }
 
   const handleTouchEnd = () => {

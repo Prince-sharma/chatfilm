@@ -4,7 +4,7 @@ export interface Message {
   content: string
   timestamp: string
   seen: boolean
-  type: "text" | "image"
+  type: "text" | "image" | "day-separator"
 }
 
 export const initialMessages: Message[] = [

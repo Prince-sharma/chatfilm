@@ -1,7 +1,6 @@
 "use client"
 
-import type React from "react"
-import { useEffect, useRef, useState, useCallback } from "react"
+import React, { useEffect, useRef, useState, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -20,6 +19,9 @@ import { useRealTimeChat } from "@/hooks/use-real-time-chat"
 import ChatBackground from "@/components/chat-background"
 import { cn } from "@/lib/utils"
 import { formatTime } from "@/lib/utils"
+import { v4 as uuidv4 } from 'uuid'
+import DaySeparator from "@/components/day-separator"
+import DaySeparatorDialog from "@/components/day-separator-dialog"
 
 type ValidRole = 'akash' | 'divyangini'
 
@@ -57,6 +59,7 @@ export default function ChatPage() {
     markAsSeen,
     isConnected,
     deleteMessage,
+    setMessages,
   } = useRealTimeChat(role, otherPerson)
 
   const [viewingImage, setViewingImage] = useState<string | null>(null)
@@ -66,6 +69,11 @@ export default function ChatPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isMobile, setIsMobile] = useState(false)
+  const [clickCount, setClickCount] = useState(0);
+  const [clickTimeout, setClickTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [clickPosition, setClickPosition] = useState<{top: number, left: number} | null>(null);
+  const [insertPosition, setInsertPosition] = useState<number | null>(null);
+  const [separatorDialogOpen, setSeparatorDialogOpen] = useState(false);
 
   // Detect mobile devices
   useEffect(() => {
@@ -305,6 +313,133 @@ export default function ChatPage() {
     }
   }, [newMessage]); // Re-run when message changes
 
+  // Clear click count after delay
+  const handleClickArea = (e: React.MouseEvent, index: number) => {
+    e.stopPropagation();
+    
+    // Update click position
+    setClickPosition({
+      top: e.clientY,
+      left: e.clientX
+    });
+    
+    // Set insert position between current and next message
+    setInsertPosition(index);
+    
+    // Increment click count
+    setClickCount(prev => prev + 1);
+    
+    // Clear any existing timeout
+    if (clickTimeout) {
+      clearTimeout(clickTimeout);
+    }
+    
+    // Set new timeout to reset click count
+    const timeout = setTimeout(() => {
+      setClickCount(0);
+    }, 500); // Reset after 500ms if no more clicks
+    
+    setClickTimeout(timeout);
+    
+    // Check for triple click
+    if (clickCount === 2) { // This will make it 3 with the increment above
+      setSeparatorDialogOpen(true);
+      setClickCount(0);
+      if (clickTimeout) {
+        clearTimeout(clickTimeout);
+      }
+    }
+  };
+  
+  // Handle day separator insertion
+  const handleAddDaySeparator = (text: string) => {
+    if (insertPosition === null) return;
+    
+    const newSeparator = {
+      id: uuidv4(),
+      sender: 'system',
+      content: text,
+      timestamp: new Date().toISOString(),
+      seen: true,
+      type: 'day-separator' as const
+    };
+    
+    // Insert the day separator locally
+    const updatedMessages = [...messages];
+    updatedMessages.splice(insertPosition + 1, 0, newSeparator);
+    
+    // Update messages in state directly since this is a UI-only feature
+    // and doesn't need to be synced with other clients
+    setMessages(updatedMessages);
+  };
+  
+  // Handle separator deletion
+  const handleDeleteSeparator = (separatorId: string) => {
+    // Filter out the separator with the specified ID
+    const updatedMessages = messages.filter(message => message.id !== separatorId);
+    setMessages(updatedMessages);
+  };
+  
+  // Handle separator dragging
+  const handleSeparatorDrag = (separatorId: string, clientY: number) => {
+    // Find the separator index
+    const separatorIndex = messages.findIndex(msg => msg.id === separatorId);
+    if (separatorIndex === -1) return;
+    
+    // Get the separator element
+    const separatorElement = document.querySelector(`[data-separator-id="${separatorId}"]`);
+    if (!separatorElement) return;
+    
+    // Find the new position based on clientY
+    const messageElements = Array.from(document.querySelectorAll('[data-message-id]'));
+    let targetIndex = -1;
+    
+    // Find the message element below the dragged position
+    for (let i = 0; i < messageElements.length; i++) {
+      const rect = messageElements[i].getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      
+      if (clientY < midpoint) {
+        targetIndex = messages.findIndex(msg => msg.id === messageElements[i].getAttribute('data-message-id'));
+        break;
+      }
+    }
+    
+    // If we didn't find a target, place at end
+    if (targetIndex === -1) {
+      targetIndex = messages.length - 1;
+    }
+    
+    // Don't move if the position didn't change or if it would be adjacent to another separator
+    if (
+      targetIndex === separatorIndex || 
+      targetIndex === separatorIndex - 1 || 
+      (messages[targetIndex]?.type === 'day-separator') || 
+      (targetIndex > 0 && messages[targetIndex - 1]?.type === 'day-separator')
+    ) {
+      return;
+    }
+    
+    // Move the separator
+    const updatedMessages = [...messages];
+    const [removedSeparator] = updatedMessages.splice(separatorIndex, 1);
+    
+    // Insert at the new position
+    const insertAt = targetIndex > separatorIndex ? targetIndex - 1 : targetIndex;
+    updatedMessages.splice(insertAt, 0, removedSeparator);
+    
+    setMessages(updatedMessages);
+  };
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (clickTimeout) {
+        clearTimeout(clickTimeout);
+      }
+    };
+  }, [clickTimeout]);
+
   return (
     <div className="flex h-dvh flex-col bg-background">
       <header className="flex flex-shrink-0 items-center justify-between border-b border-border bg-card p-3 shadow-md">
@@ -351,18 +486,27 @@ export default function ChatPage() {
           {(() => {
             let lastSeenIndex = -1;
             let lastUserMessageIndex = -1;
+            let lastOtherPersonMessageIndex = -1;
             
             // First, find the last message from the current user
             for (let i = messages.length - 1; i >= 0; i--) {
-              if (messages[i].sender === role) {
+              if (messages[i].sender === role && messages[i].type !== 'day-separator') {
                 lastUserMessageIndex = i;
+                break;
+              }
+            }
+            
+            // Find the last message from the other person
+            for (let i = messages.length - 1; i >= 0; i--) {
+              if (messages[i].sender === otherPerson && messages[i].type !== 'day-separator') {
+                lastOtherPersonMessageIndex = i;
                 break;
               }
             }
             
             // Then find the last seen message from the current user
             for (let i = messages.length - 1; i >= 0; i--) {
-              if (messages[i].sender === role && messages[i].seen) {
+              if (messages[i].sender === role && messages[i].seen && messages[i].type !== 'day-separator') {
                 lastSeenIndex = i;
                 break;
               }
@@ -370,25 +514,52 @@ export default function ChatPage() {
             
             // Only show "Seen" if:
             // 1. The last seen message is also the last message from the user in the conversation
-            // 2. There are no messages from the other person after this message
-            const validLastSeenIndex = lastSeenIndex === lastUserMessageIndex ? lastSeenIndex : -1;
+            // 2. There are no messages from the other person after this seen message
+            const validLastSeenIndex = 
+              lastSeenIndex === lastUserMessageIndex && 
+              (lastOtherPersonMessageIndex === -1 || lastOtherPersonMessageIndex < lastSeenIndex) 
+                ? lastSeenIndex 
+                : -1;
 
             return messages.map((message, index) => (
-              <div 
-                key={message.id} 
-                data-message-id={message.id} 
-                data-sender={message.sender}
-                className="transition-all duration-300 ease-in-out"
-              >
-                <ChatMessage 
-                  message={message} 
-                  currentUser={role} 
-                  onImageClick={setViewingImage}
-                  onDeleteMessage={handleDeleteMessage} 
-                  isLastSeenByOther={index === validLastSeenIndex} 
-                />
-              </div>
-            ))
+              <React.Fragment key={message.id}>
+                {/* Render based on message type */}
+                {message.type === 'day-separator' ? (
+                  <div data-separator-id={message.id}>
+                    <DaySeparator 
+                      text={message.content} 
+                      onDelete={() => handleDeleteSeparator(message.id)}
+                      onDragEnd={(clientY) => handleSeparatorDrag(message.id, clientY)}
+                    />
+                  </div>
+                ) : (
+                  <div 
+                    data-message-id={message.id} 
+                    data-sender={message.sender}
+                    className="transition-all duration-300 ease-in-out"
+                  >
+                    <ChatMessage 
+                      message={message} 
+                      currentUser={role} 
+                      onImageClick={setViewingImage}
+                      onDeleteMessage={handleDeleteMessage} 
+                      isLastSeenByOther={index === validLastSeenIndex} 
+                    />
+                  </div>
+                )}
+                
+                {/* Area between messages for triple-click */}
+                {index < messages.length - 1 && (
+                  <div 
+                    className={cn(
+                      "h-3 w-full cursor-pointer transition-colors duration-200",
+                      clickCount > 0 && insertPosition === index ? "bg-muted/30 hover:bg-muted/40" : "hover:bg-muted/20"
+                    )}
+                    onClick={(e) => handleClickArea(e, index)}
+                  />
+                )}
+              </React.Fragment>
+            ));
           })()}
           {isTyping && (
             <div className={`flex justify-start animate-pulse`}>
@@ -456,6 +627,13 @@ export default function ChatPage() {
         </Button>
       </div>
 
+      {/* Day separator dialog */}
+      <DaySeparatorDialog 
+        open={separatorDialogOpen}
+        onOpenChange={setSeparatorDialogOpen}
+        onConfirm={handleAddDaySeparator}
+      />
+      
       {viewingImage && <ImageViewer src={viewingImage} onClose={() => setViewingImage(null)} />}
     </div>
   )

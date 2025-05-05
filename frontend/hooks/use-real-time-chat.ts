@@ -247,7 +247,8 @@ export function useRealTimeChat(currentUser: string, otherUser: string) {
     sendMessage,
     sendImage,
     markAsSeen,
-    deleteMessage, // Expose the delete function
-    isConnected, // Expose connection status to UI if needed
+    deleteMessage,
+    isConnected,
+    setMessages, // Expose setMessages for UI-only features like day separators
   }
 }

@@ -18,6 +18,8 @@
     "start:backend": "cd backend && npm run start"
   },
   "dependencies": {
-    "concurrently": "^8.2.0"
+    "@types/uuid": "^10.0.0",
+    "concurrently": "^8.2.0",
+    "uuid": "^11.1.0"
   }
 }
