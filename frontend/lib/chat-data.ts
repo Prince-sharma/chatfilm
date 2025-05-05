@@ -1,5 +1,6 @@
 export interface Message {
   id: string
+  clientId?: string
   sender: string
   content: string
   timestamp: string

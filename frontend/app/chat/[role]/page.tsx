@@ -23,6 +23,7 @@ import { v4 as uuidv4 } from 'uuid'
 import imageCompression from 'browser-image-compression'
 import DaySeparator from "@/components/day-separator"
 import DaySeparatorDialog from "@/components/day-separator-dialog"
+import { type Message } from "@/lib/chat-data"
 
 type ValidRole = 'akash' | 'divyangini'
 
@@ -30,18 +31,19 @@ export default function ChatPage() {
   const params = useParams()
   const router = useRouter()
   const roleParam = params.role as string
+  const [newMessage, setNewMessage] = useState("")
 
   // Validate role
   useEffect(() => {
     if (roleParam !== 'akash' && roleParam !== 'divyangini') {
       console.error("Invalid role specified in URL:", roleParam)
-      router.replace("/"); // Redirect to home or an error page
+      router.replace("/")
     }
   }, [roleParam, router])
 
   // Return null or a loading state while validating/redirecting
   if (roleParam !== 'akash' && roleParam !== 'divyangini') {
-    return null; // Or a loading spinner
+    return null
   }
 
   // Cast to the validated type
@@ -53,8 +55,6 @@ export default function ChatPage() {
     isTyping,
     isMuted,
     setIsMuted,
-    newMessage,
-    setNewMessage,
     sendMessage,
     sendImage,
     markAsSeen,
@@ -104,18 +104,33 @@ export default function ChatPage() {
     }
   }, [messages, scrollToBottom, isMobile])
 
+  // Keyboard focus management for mobile devices - REMOVED AGGRESSIVE INTERVAL
+  // useEffect(() => {
+  //   if (!isMobile || !textareaRef.current) return;
+    
+  //   const maintainFocus = () => { /* ... */ };
+  //   const focusInterval = setInterval(maintainFocus, 300); // REMOVE THIS
+  //   const handleVisibilityChange = () => { /* ... */ };
+  //   document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+  //   return () => {
+  //     clearInterval(focusInterval);
+  //     document.removeEventListener('visibilitychange', handleVisibilityChange);
+  //   };
+  // }, [isMobile]);
+  
+  // Let handleInputFocus manage opening keyboard state
   const handleInputFocus = () => {
-    setIsKeyboardOpen(true)
-    // Delay scrolling to bottom to account for keyboard appearance
-    setTimeout(() => scrollToBottom('smooth'), isMobile ? 300 : 100)
-  }
+    setIsKeyboardOpen(true);
+    // Scroll only when focusing, not necessarily when keyboard state changes
+    setTimeout(() => scrollToBottom('smooth'), isMobile ? 300 : 100);
+  };
 
+  // Let handleInputBlur manage closing keyboard state
   const handleInputBlur = () => {
-    // Only change keyboard state if we're not on mobile or if explicitly requested
-    if (!isMobile) {
-      setIsKeyboardOpen(false)
-    }
-  }
+    // Allow blur normally - OS back button or tapping outside will handle dismissal
+    setIsKeyboardOpen(false);
+  };
 
   useEffect(() => {
     if (!chatContainerRef.current) return
@@ -155,20 +170,13 @@ export default function ChatPage() {
     const file = e.target.files?.[0];
     if (!file) {
       console.log("No file selected or selection cancelled.");
-       if (fileInputRef.current) {
-         fileInputRef.current.value = "";
-       }
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
-    
     console.log("Original file selected:", file.name, file.type, file.size);
     
-    // --- Image Compression --- 
     const options = {
-      maxSizeMB: 0.5,          // Max size in MB (adjust as needed)
-      maxWidthOrHeight: 1024,  // Max width or height
-      useWebWorker: true,      // Use web worker for better performance
-      initialQuality: 0.7,     // Initial quality for compression
+      maxSizeMB: 0.5, maxWidthOrHeight: 1024, useWebWorker: true, initialQuality: 0.7,
     };
 
     try {
@@ -176,47 +184,53 @@ export default function ChatPage() {
       const compressedFile = await imageCompression(file, options);
       console.log("Compressed file:", compressedFile.name, compressedFile.type, compressedFile.size);
 
-      // --- Read Compressed File --- 
       const reader = new FileReader();
-      
       reader.onload = (event) => {
         try {
           if (event.target?.result) {
-            console.log("Compressed file read successfully, sending image...");
-            sendImage(event.target.result.toString());
-            // Keep focus after sending image
+            const imageDataUrl = event.target.result.toString();
+            const tempId = uuidv4();
+
+            // Optimistic update for image
+            const optimisticImageMessage: Message = {
+              id: tempId,
+              clientId: tempId,
+              sender: role,
+              content: imageDataUrl, 
+              timestamp: new Date().toISOString(),
+              seen: false,
+              type: "image" as const,
+            };
+            setMessages(prev => [...prev, optimisticImageMessage]);
+            console.log("Optimistic image added, sending...");
+
+            // Send image with content and tempId
+            sendImage(imageDataUrl, tempId);
+
+            // Keep focus *only on mobile* after sending image
             if (isMobile) {
-              requestAnimationFrame(() => {
-                textareaRef.current?.focus();
-              });
+               setTimeout(() => {
+                  textareaRef.current?.focus(); 
+               }, 10); 
             }
+
           } else {
-            console.error("FileReader onload event target result is null after compression");
+            console.error("FileReader error after compression");
           }
         } catch (error) {
-           console.error("Error sending image after reading compressed file:", error);
+           console.error("Error handling compressed file read:", error);
         } finally {
-          if (fileInputRef.current) {
-            fileInputRef.current.value = ""; 
-          }
+          if (fileInputRef.current) fileInputRef.current.value = ""; 
         }
       };
-      
       reader.onerror = (error) => {
         console.error("Error reading compressed file:", error);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
+        if (fileInputRef.current) fileInputRef.current.value = "";
       };
-
       reader.readAsDataURL(compressedFile);
-      
     } catch (error) {
       console.error("Image compression failed:", error);
-      // Optionally fall back to sending original or show error to user
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -224,86 +238,41 @@ export default function ChatPage() {
     router.push(`/profile/${otherPerson}`)
   }
 
-  // Keyboard focus management for mobile devices
-  useEffect(() => {
-    if (!isMobile || !textareaRef.current) return;
-    
-    // Keep keyboard up at all times on mobile by maintaining focus
-    const maintainFocus = () => {
-      if (document.activeElement !== textareaRef.current) {
-        textareaRef.current?.focus();
-      }
-    };
-    
-    // Set initial focus
-    maintainFocus();
-    
-    // Maintain focus after sending a message
-    const focusInterval = setInterval(maintainFocus, 300);
-    
-    // Re-focus when device becomes visible again
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        setTimeout(maintainFocus, 100);
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      clearInterval(focusInterval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [isMobile]);
-
   const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      // Store message locally first for immediate optimistic update
-      const messageToSend = newMessage.trim();
-      const tempId = uuidv4();
-      const optimisticMessage = {
-        id: tempId,
-        sender: role,
-        content: messageToSend,
-        timestamp: new Date().toISOString(),
-        seen: false,
-        type: "text" as const
+    const contentToSend = newMessage.trim();
+    if (contentToSend) {
+      const tempId = uuidv4(); 
+      const optimisticMessage: Message = { 
+        id: tempId, clientId: tempId, sender: role, content: contentToSend,
+        timestamp: new Date().toISOString(), seen: false, type: "text" as const,
       };
-      
-      // Add message to UI immediately
       setMessages(prevMessages => [...prevMessages, optimisticMessage]);
-      
-      // Clear input field immediately
       setNewMessage('');
-      
-      // Focus immediately before any UI updates
+
+      // Send the message
+      sendMessage(contentToSend, tempId);
+
+      // Keep focus after sending *only on mobile*
       if (isMobile) {
-        textareaRef.current?.focus();
-      }
-      
-      // Then send the message to the server
-      sendMessage();
-      
-      // Ensure the textarea remains focused after message is sent
-      if (isMobile) {
-        requestAnimationFrame(() => {
-          textareaRef.current?.focus();
-        });
+        // Request focus after a short delay to ensure it happens after potential DOM updates
+        setTimeout(() => {
+           textareaRef.current?.focus(); 
+        }, 10); 
       }
     }
-  }
+  };
 
   const handleDeleteMessage = (messageId: string) => {
-    if (messageId) {
-      console.log(`Deleting message with ID: ${messageId}`);
-      deleteMessage(messageId);
-      
-      // Focus back on the input field after deletion
-      setTimeout(() => {
-        textareaRef.current?.focus();
-      }, 300);
+    // Find the message to delete, preferring clientId if available
+    const messageToDelete = messages.find(m => m.clientId === messageId || m.id === messageId);
+    if (!messageToDelete || messageToDelete.sender !== role) {
+      console.warn("Cannot delete message - not found or not owner", messageId);
+      return;
     }
-  }
+    
+    console.log(`Deleting message with final ID: ${messageToDelete.id}`);
+    deleteMessage(messageToDelete.id); // Call hook's delete with final ID
+  };
 
   // Auto-resize Textarea height and adjust border radius dynamically
   useEffect(() => {
@@ -550,7 +519,7 @@ export default function ChatPage() {
                 : -1;
 
             return messages.map((message, index) => (
-              <React.Fragment key={message.id}>
+              <React.Fragment key={message.clientId || message.id}>
                 {/* Render based on message type */}
                 {message.type === 'day-separator' ? (
                   <div data-separator-id={message.id}>
@@ -570,7 +539,7 @@ export default function ChatPage() {
                       message={message} 
                       currentUser={role} 
                       onImageClick={setViewingImage}
-                      onDeleteMessage={handleDeleteMessage} 
+                      onDeleteMessage={() => handleDeleteMessage(message.clientId || message.id)} 
                       isLastSeenByOther={index === validLastSeenIndex} 
                     />
                   </div>

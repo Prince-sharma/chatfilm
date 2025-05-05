@@ -30,7 +30,6 @@ const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhos
 
 export function useRealTimeChat(currentUser: string, otherUser: string) {
   const [messages, setMessages] = useState<Message[]>([])
-  const [newMessage, setNewMessage] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
@@ -81,7 +80,7 @@ export function useRealTimeChat(currentUser: string, otherUser: string) {
       setMessages(loadedMessages)
     })
 
-    socket.on("newMessage", (receivedMessage: Message) => {
+    socket.on("newMessage", (receivedMessage: Message & { clientId?: string }) => {
       console.log("Received new message:", receivedMessage)
       // Play sound if not muted and message is from other user
       if (!isMuted && receivedMessage.sender === otherUser) {
@@ -91,9 +90,31 @@ export function useRealTimeChat(currentUser: string, otherUser: string) {
       }
       // Only add the message if it doesn't already exist
       setMessages((prevMessages) => {
-        const exists = prevMessages.some(msg => msg.id === receivedMessage.id);
-        if (exists) return prevMessages;
-        return [...prevMessages, receivedMessage];
+        // Check if this message is confirming an optimistic update
+        if (receivedMessage.clientId && receivedMessage.sender === currentUser) {
+          let replaced = false;
+          const updatedMessages = prevMessages.map(msg => {
+            // Replace the optimistic message (identified by clientId) with the server version
+            if (msg.id === receivedMessage.clientId) { 
+              replaced = true;
+              // Use all data from server, but keep the final server ID
+              return { ...receivedMessage, id: receivedMessage.id }; 
+            }
+            return msg;
+          });
+          // If replacement happened, return updated messages
+          if(replaced) return updatedMessages;
+          // If replacement didn't happen (e.g., optimistic message was already removed?), 
+          // check if the server message ID already exists before adding.
+          const existsById = prevMessages.some(msg => msg.id === receivedMessage.id);
+          return existsById ? prevMessages : [...prevMessages, receivedMessage];
+        } else {
+          // Standard message handling (e.g., from other user)
+          // Check if message already exists by final ID before adding
+          const exists = prevMessages.some(msg => msg.id === receivedMessage.id);
+          if (exists) return prevMessages;
+          return [...prevMessages, receivedMessage];
+        }
       })
       // If the incoming message is from the other user, they are no longer typing
       if (receivedMessage.sender === otherUser) {
@@ -141,48 +162,34 @@ export function useRealTimeChat(currentUser: string, otherUser: string) {
     }
   }, [currentUser, otherUser, isMuted]) // Rerun effect if users change or mute status changes (for sound)
 
-  // Effect for emitting typing status
-  useEffect(() => {
-    if (!socketRef.current || !isConnected) return
-
-    if (newMessage.trim()) {
-      console.log("Emitting typing")
-      socketRef.current.emit("typing", { to: otherUser })
-      emitStopTyping() // Schedule stopTyping emission
-    } else {
-      // If message becomes empty, cancel any scheduled stopTyping and emit immediately
-      emitStopTyping.cancel()
-      console.log("Emitting stopTyping immediately (message cleared)")
-      socketRef.current.emit("stopTyping", { to: otherUser })
-    }
-
-    // Cleanup debounced function on unmount or dependency change
-    return () => emitStopTyping.cancel()
-  }, [newMessage, otherUser, isConnected, emitStopTyping])
-
   // Send a text message
-  const sendMessage = () => {
-    if (!newMessage.trim() || !socketRef.current || !isConnected) return
+  const sendMessage = (content: string, clientId: string) => {
+    if (!content || !socketRef.current || !isConnected) return
 
     const messagePayload = {
+      clientId: clientId, // Include the temporary client ID
       sender: currentUser,
-      content: newMessage,
+      content: content,
       timestamp: new Date().toISOString(),
-      type: "text" as const, // Ensure type safety
+      type: "text" as const,
     }
 
     console.log("Sending message:", messagePayload)
     socketRef.current.emit("sendMessage", messagePayload)
-    setNewMessage("") // Clear input after sending
-    emitStopTyping.cancel() // Ensure stop typing is cancelled/emitted
-    socketRef.current.emit("stopTyping", { to: otherUser })
+
+    // Emit stop typing immediately after sending
+    emitStopTyping.cancel()
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit("stopTyping", { to: otherUser })
+    }
   }
 
   // Send an image message
-  const sendImage = (imageUrl: string) => {
+  const sendImage = (imageUrl: string, clientId: string) => {
     if (!imageUrl || !socketRef.current || !isConnected) return
 
     const messagePayload = {
+      clientId: clientId, // Include the temporary client ID
       sender: currentUser,
       content: imageUrl,
       timestamp: new Date().toISOString(),
@@ -242,8 +249,6 @@ export function useRealTimeChat(currentUser: string, otherUser: string) {
     isTyping,
     isMuted,
     setIsMuted,
-    newMessage,
-    setNewMessage,
     sendMessage,
     sendImage,
     markAsSeen,
