@@ -191,8 +191,8 @@ export default function ChatPage() {
             const imageDataUrl = event.target.result.toString();
             const tempId = uuidv4();
 
-            // Prevent blur during state updates
-            if (isMobile) textareaRef.current?.blur();
+            // Ensure focus *before* state updates on mobile
+            if (isMobile) textareaRef.current?.focus();
             
             const optimisticImageMessage: Message = {
               id: tempId,
@@ -205,14 +205,15 @@ export default function ChatPage() {
             };
             setMessages(prev => [...prev, optimisticImageMessage]);
             
-            // Refocus after state updates
+            // Send the image (async)
+            sendImage(imageDataUrl, tempId);
+
+            // Re-assert focus after potential DOM updates on mobile
             if (isMobile) {
                requestAnimationFrame(() => {
                   textareaRef.current?.focus();
                });
             }
-
-            sendImage(imageDataUrl, tempId);
 
           } else {
             console.error("FileReader error after compression");
@@ -247,23 +248,22 @@ export default function ChatPage() {
         timestamp: new Date().toISOString(), seen: false, type: "text" as const,
       };
 
-      // Prevent blur during state updates
-      if (isMobile) textareaRef.current?.blur(); // Temporarily blur to prevent flicker
-      
-      // Perform state updates *synchronously* if possible
+      // Ensure focus *before* state updates on mobile
+      if (isMobile) textareaRef.current?.focus();
+
+      // State updates
       setMessages(prevMessages => [...prevMessages, optimisticMessage]);
-      setNewMessage(''); // Clear input immediately
+      setNewMessage(''); 
       
-      // Refocus after state updates have settled
+      // Send the message (async)
+      sendMessage(contentToSend, tempId);
+
+      // Re-assert focus after potential DOM updates on mobile
       if (isMobile) {
-        // Use requestAnimationFrame for focus timing after render
         requestAnimationFrame(() => {
           textareaRef.current?.focus();
         });
       }
-
-      // Send the message to the server (async, doesn't block focus)
-      sendMessage(contentToSend, tempId);
     }
   };
 
@@ -589,8 +589,7 @@ export default function ChatPage() {
           <Camera size={24} />
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp"
-            capture="environment"
+            accept="image/*"
             className="hidden"
             ref={fileInputRef}
             onChange={handleFileChange}
