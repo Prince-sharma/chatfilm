@@ -43,6 +43,16 @@ export function useRealTimeChat(currentUser: string, otherUser: string) {
     }
   }, 1500), [otherUser, isConnected])
 
+  // Function to emit typing event
+  const startTyping = useCallback(() => {
+    if (socketRef.current && isConnected) {
+      console.log("Emitting typing")
+      socketRef.current.emit("typing", { to: otherUser })
+      // Schedule stop typing after delay
+      emitStopTyping()
+    }
+  }, [otherUser, isConnected, emitStopTyping])
+
   // Effect for Socket Connection and Event Listeners
   useEffect(() => {
     // Prevent connection attempt if currentUser is not set (e.g., during initial render)
@@ -255,5 +265,6 @@ export function useRealTimeChat(currentUser: string, otherUser: string) {
     deleteMessage,
     isConnected,
     setMessages, // Expose setMessages for UI-only features like day separators
+    startTyping, // Expose startTyping function
   }
 }

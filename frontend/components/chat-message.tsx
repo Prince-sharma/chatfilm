@@ -20,6 +20,7 @@ interface ChatMessageProps {
   regeneratingId?: string
   onDeleteMessage?: (id: string) => void
   isLastSeenByOther?: boolean
+  userRole?: 'akash' | 'divyangini'
 }
 
 export default function ChatMessage({
@@ -33,6 +34,7 @@ export default function ChatMessage({
   regeneratingId,
   onDeleteMessage,
   isLastSeenByOther,
+  userRole = 'divyangini',
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -194,7 +196,9 @@ export default function ChatMessage({
           className={cn(
             "relative inline-block rounded-[20px] text-lg max-w-[80vw] lg:max-w-lg transition-transform duration-200", // Added text-lg
             isUser
-              ? "bg-primary text-primary-foreground"
+              ? userRole === 'akash' 
+                ? "bg-blue-600 text-white" // Blue bubbles for Akash
+                : "bg-primary text-primary-foreground" // Default purple for Divyangini
               : "bg-card text-foreground shadow-sm border border-border/30",
             message.type === 'image' ? 'p-0 overflow-hidden' : 'px-4 py-2',
             // Apply slight scale effect when delete button is shown
@@ -217,17 +221,16 @@ export default function ChatMessage({
           )}
         </div>
         
-        {/* Seen Status (no change) */} 
+        {/* Seen Status - Modified with dull white color */} 
         {isUser && isLastSeenByOther && message.seen && (
           <div className="h-5 mt-0.5 text-sm overflow-hidden">
             <span 
               className={cn(
-                "text-sm text-muted-foreground flex items-center transition-opacity duration-200",
+                "text-sm flex items-center transition-opacity duration-200 pr-3 text-gray-400",
                 seenVisible ? "opacity-100" : "opacity-0"
               )}
             >
-              Seen {formatTime(message.timestamp)}
-              <CheckCheck size={14} className="ml-1 text-primary" />
+              Seen
             </span>
           </div>
         )}

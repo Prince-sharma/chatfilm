@@ -11,7 +11,8 @@ import {
   MoreVertical,
   BellOff,
   Bell,
-  SendHorizontal
+  SendHorizontal,
+  ImageIcon
 } from "lucide-react"
 import ChatMessage from "@/components/chat-message"
 import ImageViewer from "@/components/image-viewer"
@@ -61,6 +62,7 @@ export default function ChatPage() {
     isConnected,
     deleteMessage,
     setMessages,
+    startTyping,
   } = useRealTimeChat(role, otherPerson)
 
   const [viewingImage, setViewingImage] = useState<string | null>(null)
@@ -75,6 +77,7 @@ export default function ChatPage() {
   const [clickPosition, setClickPosition] = useState<{top: number, left: number} | null>(null);
   const [insertPosition, setInsertPosition] = useState<number | null>(null);
   const [separatorDialogOpen, setSeparatorDialogOpen] = useState(false);
+  const [showMediaOptions, setShowMediaOptions] = useState(false);
 
   // Detect mobile devices
   useEffect(() => {
@@ -163,7 +166,24 @@ export default function ChatPage() {
   }, [messages, markAsSeen, otherPerson])
 
   const handleCameraClick = () => {
-    fileInputRef.current?.click()
+    setShowMediaOptions(true);
+  }
+
+  const handleCameraCapture = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.setAttribute('capture', 'environment');
+      fileInputRef.current.click();
+      setShowMediaOptions(false);
+    }
+  }
+
+  const handleGallerySelect = () => {
+    if (fileInputRef.current) {
+      // Remove capture attribute to open gallery
+      fileInputRef.current.removeAttribute('capture');
+      fileInputRef.current.click();
+      setShowMediaOptions(false);
+    }
   }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -444,15 +464,31 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-dvh flex-col bg-background">
-      <header className="flex flex-shrink-0 items-center justify-between border-b border-border bg-card p-4 shadow-md">
+      <header className={cn(
+        "flex flex-shrink-0 items-center justify-between border-b shadow-md",
+        // Apply safe area inset padding for iOS notch
+        "pt-4 pb-4 px-4",
+        "pt-[calc(env(safe-area-inset-top)+1rem)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]",
+        role === 'akash' 
+          ? "border-gray-800 bg-gray-900" 
+          : "border-border bg-card"
+      )}>
         <div className="flex items-center">
-          <Button variant="ghost" size="icon" className="mr-2 text-foreground/80 hover:bg-secondary" onClick={() => router.push("/")}>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className={cn(
+              "mr-2 hover:bg-secondary",  
+              role === 'akash' ? "text-gray-300" : "text-foreground/80"
+            )} 
+            onClick={() => router.push("/")}
+          >
             <ArrowLeft size={26} />
           </Button>
           <div className="flex cursor-pointer items-center" onClick={handleProfileClick}>
             <div className="relative h-11 w-11">
               <Image
-                src={`https://ui-avatars.com/api/?name=${otherPerson}&background=random&color=fff&size=44`}
+                src={otherPerson === "akash" ? "/a.jpeg" : "/d.jpeg"}
                 alt={otherPerson}
                 className="rounded-full object-cover"
                 width={44}
@@ -469,8 +505,10 @@ export default function ChatPage() {
             variant="ghost" 
             size="icon" 
             className={cn(
-              "text-foreground/80 hover:bg-secondary rounded-full p-2",
-              isMuted && "bg-destructive/80 hover:bg-destructive text-destructive-foreground"
+              "rounded-full p-2",
+              role === 'akash' 
+                ? isMuted ? "bg-red-800 hover:bg-red-700 text-white" : "text-gray-300 hover:bg-gray-800" 
+                : isMuted ? "bg-destructive/80 hover:bg-destructive text-destructive-foreground" : "text-foreground/80 hover:bg-secondary"
             )}
             onClick={() => setIsMuted(!isMuted)}
           >
@@ -481,7 +519,10 @@ export default function ChatPage() {
 
       <div 
         ref={chatContainerRef} 
-        className="relative flex-1 overflow-y-auto p-3 pb-1 sm:p-4"
+        className={cn(
+          "relative flex-1 overflow-y-auto p-3 pb-1 sm:p-4",
+          "pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]"
+        )}
       >
         <ChatBackground role={role} />
         <div className="relative z-10 space-y-0.5 pb-1">
@@ -546,6 +587,7 @@ export default function ChatPage() {
                       onImageClick={setViewingImage}
                       onDeleteMessage={() => handleDeleteMessage(message.clientId || message.id)} 
                       isLastSeenByOther={index === validLastSeenIndex} 
+                      userRole={role}
                     />
                   </div>
                 )}
@@ -565,11 +607,23 @@ export default function ChatPage() {
           })()}
           {isTyping && (
             <div className={`flex justify-start animate-pulse`}>
-              <div className="ml-2 rounded-full bg-secondary px-4 py-2 shadow-md">
+              <div className={cn(
+                "ml-2 rounded-full px-4 py-2 shadow-md",
+                role === 'akash' ? "bg-gray-800" : "bg-secondary"
+              )}>
                 <div className="flex items-center space-x-1">
-                  <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]"></div>
-                  <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]"></div>
-                  <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground"></div>
+                  <div className={cn(
+                    "h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:-0.3s]",
+                    role === 'akash' ? "bg-blue-400" : "bg-muted-foreground"
+                  )}></div>
+                  <div className={cn(
+                    "h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:-0.15s]",
+                    role === 'akash' ? "bg-blue-400" : "bg-muted-foreground"
+                  )}></div>
+                  <div className={cn(
+                    "h-1.5 w-1.5 animate-bounce rounded-full",
+                    role === 'akash' ? "bg-blue-400" : "bg-muted-foreground"
+                  )}></div>
                 </div>
               </div>
             </div>
@@ -578,22 +632,25 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <div className="flex flex-shrink-0 items-center border-t border-border bg-card p-2 sm:p-3">
+      <div className={cn(
+        "flex flex-shrink-0 items-center border-t p-2 sm:p-3",
+        // Apply safe area inset padding for bottom edges
+        "pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]",
+        role === 'akash' 
+          ? "border-gray-800 bg-gray-900" 
+          : "border-border bg-card"
+      )}>
         <Button
           variant="ghost"
           size="icon"
-          className="mr-1 h-12 w-12 flex-shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform"
+          className={cn(
+            "mr-1 h-12 w-12 flex-shrink-0 rounded-full text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform",
+            role === 'akash' ? "bg-blue-600" : "bg-primary"
+          )}
           onClick={handleCameraClick}
           aria-label="Take a photo"
         >
           <Camera size={24} />
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-          />
         </Button>
 
         <div className="relative flex-1 mx-1">
@@ -601,9 +658,18 @@ export default function ChatPage() {
             ref={textareaRef}
             rows={1}
             placeholder="Message..."
-            className="w-full border bg-input py-2 px-4 text-lg text-foreground placeholder:text-muted-foreground resize-none overflow-hidden focus:outline-none focus-visible:outline-none focus:border-input focus:bg-input focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:ring-offset-0 min-h-[44px] leading-normal transition-all duration-200"
+            className={cn(
+              "w-full border py-2 px-4 text-lg text-foreground placeholder:text-muted-foreground resize-none overflow-hidden focus:outline-none focus-visible:outline-none focus:border-input focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:ring-offset-0 min-h-[44px] leading-normal transition-all duration-200",
+              role === 'akash' ? "bg-gray-800 border-gray-700" : "bg-input"
+            )}
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={(e) => {
+              setNewMessage(e.target.value);
+              // Emit typing event to server when user types
+              if (e.target.value.trim()) {
+                startTyping();
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -619,7 +685,10 @@ export default function ChatPage() {
         <Button
           variant="ghost"
           size="icon"
-          className="ml-1 h-12 w-12 flex-shrink-0 rounded-full bg-primary text-primary-foreground active:scale-95 transition-transform"
+          className={cn(
+            "ml-1 h-12 w-12 flex-shrink-0 rounded-full text-primary-foreground active:scale-95 transition-transform",
+            role === 'akash' ? "bg-blue-600" : "bg-primary"
+          )}
           onClick={handleSendMessage}
           disabled={!newMessage.trim() || !isConnected}
           aria-label="Send message"
@@ -635,7 +704,56 @@ export default function ChatPage() {
         onConfirm={handleAddDaySeparator}
       />
       
+      {/* Hidden file input for image selection */}
+      <input
+        type="file"
+        accept="image/*"
+        className="hidden"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+      />
+      
       {viewingImage && <ImageViewer src={viewingImage} onClose={() => setViewingImage(null)} />}
+
+      {/* Image source selection modal */}
+      {showMediaOptions && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-end justify-center p-4">
+          <div className={cn(
+            "w-full max-w-md rounded-lg p-4 mb-6 animate-in fade-in slide-in-from-bottom-10",
+            role === 'akash' ? "bg-gray-900" : "bg-card"
+          )}>
+            <div className="flex flex-col space-y-3">
+              <Button 
+                className={cn(
+                  "flex items-center justify-start text-lg font-normal p-4 h-auto",
+                  role === 'akash' ? "bg-gray-800 hover:bg-gray-700 text-white" : ""
+                )}
+                onClick={handleCameraCapture}
+              >
+                <Camera className="mr-3" size={22} />
+                Take Photo
+              </Button>
+              <Button 
+                className={cn(
+                  "flex items-center justify-start text-lg font-normal p-4 h-auto",
+                  role === 'akash' ? "bg-gray-800 hover:bg-gray-700 text-white" : ""
+                )}
+                onClick={handleGallerySelect}
+              >
+                <ImageIcon className="mr-3" size={22} />
+                Choose from Gallery
+              </Button>
+              <Button 
+                variant="ghost" 
+                className="mt-2"
+                onClick={() => setShowMediaOptions(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -15,7 +15,7 @@ export default function ProfilePage() {
   const user = params.user as string
   const [viewingImage, setViewingImage] = useState(false)
 
-  const profileImage = `/placeholder.svg?height=200&width=200&text=${user.charAt(0).toUpperCase()}`
+  const profileImage = user === "akash" ? "/a.jpeg" : user === "divyangini" ? "/d.jpeg" : "/placeholder.svg"
   const status = user === "akash" ? "Living life one frame at a time 🎬" : "Dreamer, believer, achiever ✨"
 
   return (
@@ -34,7 +34,7 @@ export default function ProfilePage() {
       <div className="flex flex-col items-center bg-purple-900 pb-6 pt-4">
         <div className="relative mb-4 h-32 w-32" onClick={() => setViewingImage(true)}>
           <Image
-            src={profileImage || "/placeholder.svg"}
+            src={profileImage}
             alt={user}
             width={128}
             height={128}
@@ -66,7 +66,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {viewingImage && <ImageViewer src={profileImage || "/placeholder.svg"} onClose={() => setViewingImage(false)} />}
+      {viewingImage && <ImageViewer src={profileImage} onClose={() => setViewingImage(false)} />}
     </div>
   )
 }
