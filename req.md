@@ -1,3 +1,20 @@
+Can you make the below changes:
+
+1. Reduce the font size overall by 2px 
+2. On mobile phone, the keyboard is not aligned with the text box of the chjat screens properly. when I type a message and send the message is sent but the textbox goes down, it's not aligned to keyboard anymore and takes time to adjust. I want this to be similar to how top chat apps behave where the keyboard is always there, and the user can type a message send and the continue typing the next message without any issues, the keyboard stays up and when the user presses the back button it goes away. please fix this.
+3. When the user click on the mute above. The button turns red. 
+So when it happens... The rest of the screen, suppose it had 100% brightness before, after clicking the mute button turns to something like 70% brightness later, please fix this so that it does not happen and the screen should not fade after muting the conversation
+
+Fix the below issue:
+1. The send button becomes purple when we click on it twice (As Akash) can you make it such that it remains blue only?, this happens on mobile on laptop the send button becomes purple when the user hovers over it
+2. Also the white value of D's name isn't the same as Akash's so please make them the same as Akash as well, the name for divyangi looks pale
+3. remove Divyangini's photo and keep the default one as before, with her name initials as DI 
+
+There's stil some issues, please fix them :
+1. the send message button only lights up when the user clicks on it it is faded otherwise, please fix this such that it is always bright 
+2. Divyangini's name and profile picture still looks faded as compared to akash, please fix this such that both have similar brightness overall
+
+
 Done the below changes:
 1. In mobile, the keyboard should persist after sending a messge like insa dms or whatsapp
 2. Improved the animations for typing and sending a message the slight jerky issue should not happen now

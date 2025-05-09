@@ -112,40 +112,10 @@ export default function ChatPage() {
   useEffect(() => {
     if (!isMobile || !textareaRef.current) return;
     
-    // Function to help maintain keyboard focus
-    const maintainFocus = () => {
-      // Only refocus if the document is active
-      if (document.visibilityState === 'visible' && 
-          document.activeElement !== textareaRef.current) {
-        // Check if this is likely a keyboard dismissal
-        const viewportHeight = window?.visualViewport?.height || window.innerHeight;
-        const windowHeight = window.innerHeight;
-        
-        // If the viewport is close to the window height, keyboard is likely closed
-        // In that case we don't want to force it open again
-        if (Math.abs(viewportHeight - windowHeight) < 50) {
-          // Keyboard appears closed, don't force focus
-          return;
-        }
-        
-        // Otherwise maintain focus
-        textareaRef.current?.focus();
-      }
-    };
-    
-    // Listen for visibility changes to handle app switching
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        setTimeout(maintainFocus, 300);
-      }
-    };
-    
     // Listen for viewportchange events to catch keyboard status
     const handleViewportChange = () => {
       scrollToBottom("smooth");
     };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
     
     // Use visualViewport API if available
     if (window.visualViewport) {
@@ -153,7 +123,6 @@ export default function ChatPage() {
     }
     
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (window.visualViewport) {
         window.visualViewport.removeEventListener('resize', handleViewportChange);
       }
@@ -168,16 +137,6 @@ export default function ChatPage() {
     if (isMobile) {
       setTimeout(() => {
         scrollToBottom('smooth');
-        // Ensure bottom visibility even with keyboard open
-        if (window?.visualViewport) {
-          const viewportHeight = window.visualViewport.height;
-          const windowHeight = window.innerHeight;
-          const keyboardHeight = windowHeight - viewportHeight;
-          
-          if (keyboardHeight > 50) { // If keyboard is likely open
-            scrollToBottom('smooth');
-          }
-        }
       }, 300);
     } else {
       setTimeout(() => scrollToBottom('smooth'), 100);
@@ -267,7 +226,9 @@ export default function ChatPage() {
             const tempId = uuidv4();
 
             // Ensure focus *before* state updates on mobile
-            if (isMobile) textareaRef.current?.focus();
+            if (isMobile && textareaRef.current) {
+              textareaRef.current.focus();
+            }
             
             const optimisticImageMessage: Message = {
               id: tempId,
@@ -285,9 +246,10 @@ export default function ChatPage() {
 
             // Re-assert focus after potential DOM updates on mobile
             if (isMobile) {
-               requestAnimationFrame(() => {
-                  textareaRef.current?.focus();
-               });
+              requestAnimationFrame(() => {
+                textareaRef.current?.focus();
+                scrollToBottom("smooth");
+              });
             }
 
           } else {
@@ -317,30 +279,33 @@ export default function ChatPage() {
   const handleSendMessage = () => {
     const contentToSend = newMessage.trim();
     if (contentToSend) {
+      // Maintain focus before any state updates (important for mobile)
+      if (isMobile && textareaRef.current) {
+        textareaRef.current.focus();
+      }
+
       const tempId = uuidv4(); 
       const optimisticMessage: Message = { 
         id: tempId, clientId: tempId, sender: role, content: contentToSend,
         timestamp: new Date().toISOString(), seen: false, type: "text" as const,
       };
 
-      // Update state first
+      // Update state
       setMessages(prevMessages => [...prevMessages, optimisticMessage]);
       setNewMessage(''); 
       
       // Send the message
       sendMessage(contentToSend, tempId);
 
-      // On mobile, ensure we maintain keyboard focus
+      // Maintain focus after state updates using requestAnimationFrame for better timing
       if (isMobile) {
-        if (textareaRef.current) {
-          textareaRef.current.style.height = 'auto'; // Reset height
-          
-          // Use a small delay to ensure DOM updates first
-          setTimeout(() => {
-            textareaRef.current?.focus();
+        requestAnimationFrame(() => {
+          if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto'; // Reset height
+            textareaRef.current.focus();
             scrollToBottom("smooth");
-          }, 10);
-        }
+          }
+        });
       }
     }
   };
@@ -738,12 +703,6 @@ export default function ChatPage() {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 handleSendMessage();
-                // Ensure the text area remains focused for the next message
-                if (isMobile) {
-                  setTimeout(() => {
-                    textareaRef.current?.focus();
-                  }, 10);
-                }
               }
             }}
             onFocus={handleInputFocus}
