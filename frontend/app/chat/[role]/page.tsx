@@ -25,6 +25,7 @@ import imageCompression from 'browser-image-compression'
 import DaySeparator from "@/components/day-separator"
 import DaySeparatorDialog from "@/components/day-separator-dialog"
 import { type Message } from "@/lib/chat-data"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 type ValidRole = 'akash' | 'divyangini'
 
@@ -107,26 +108,80 @@ export default function ChatPage() {
     }
   }, [messages, scrollToBottom, isMobile])
 
-  // Keyboard focus management for mobile devices - REMOVED AGGRESSIVE INTERVAL
-  // useEffect(() => {
-  //   if (!isMobile || !textareaRef.current) return;
+  // Enhanced keyboard handling for mobile
+  useEffect(() => {
+    if (!isMobile || !textareaRef.current) return;
     
-  //   const maintainFocus = () => { /* ... */ };
-  //   const focusInterval = setInterval(maintainFocus, 300); // REMOVE THIS
-  //   const handleVisibilityChange = () => { /* ... */ };
-  //   document.addEventListener('visibilitychange', handleVisibilityChange);
+    // Function to help maintain keyboard focus
+    const maintainFocus = () => {
+      // Only refocus if the document is active
+      if (document.visibilityState === 'visible' && 
+          document.activeElement !== textareaRef.current) {
+        // Check if this is likely a keyboard dismissal
+        const viewportHeight = window?.visualViewport?.height || window.innerHeight;
+        const windowHeight = window.innerHeight;
+        
+        // If the viewport is close to the window height, keyboard is likely closed
+        // In that case we don't want to force it open again
+        if (Math.abs(viewportHeight - windowHeight) < 50) {
+          // Keyboard appears closed, don't force focus
+          return;
+        }
+        
+        // Otherwise maintain focus
+        textareaRef.current?.focus();
+      }
+    };
     
-  //   return () => {
-  //     clearInterval(focusInterval);
-  //     document.removeEventListener('visibilitychange', handleVisibilityChange);
-  //   };
-  // }, [isMobile]);
-  
+    // Listen for visibility changes to handle app switching
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setTimeout(maintainFocus, 300);
+      }
+    };
+    
+    // Listen for viewportchange events to catch keyboard status
+    const handleViewportChange = () => {
+      scrollToBottom("smooth");
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Use visualViewport API if available
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleViewportChange);
+    }
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleViewportChange);
+      }
+    };
+  }, [isMobile, scrollToBottom]);
+
   // Let handleInputFocus manage opening keyboard state
   const handleInputFocus = () => {
     setIsKeyboardOpen(true);
-    // Scroll only when focusing, not necessarily when keyboard state changes
-    setTimeout(() => scrollToBottom('smooth'), isMobile ? 300 : 100);
+    
+    // Slight delay to allow the keyboard to fully open before scrolling
+    if (isMobile) {
+      setTimeout(() => {
+        scrollToBottom('smooth');
+        // Ensure bottom visibility even with keyboard open
+        if (window?.visualViewport) {
+          const viewportHeight = window.visualViewport.height;
+          const windowHeight = window.innerHeight;
+          const keyboardHeight = windowHeight - viewportHeight;
+          
+          if (keyboardHeight > 50) { // If keyboard is likely open
+            scrollToBottom('smooth');
+          }
+        }
+      }, 300);
+    } else {
+      setTimeout(() => scrollToBottom('smooth'), 100);
+    }
   };
 
   // Let handleInputBlur manage closing keyboard state
@@ -268,21 +323,24 @@ export default function ChatPage() {
         timestamp: new Date().toISOString(), seen: false, type: "text" as const,
       };
 
-      // Ensure focus *before* state updates on mobile
-      if (isMobile) textareaRef.current?.focus();
-
-      // State updates
+      // Update state first
       setMessages(prevMessages => [...prevMessages, optimisticMessage]);
       setNewMessage(''); 
       
-      // Send the message (async)
+      // Send the message
       sendMessage(contentToSend, tempId);
 
-      // Re-assert focus after potential DOM updates on mobile
+      // On mobile, ensure we maintain keyboard focus
       if (isMobile) {
-        requestAnimationFrame(() => {
-          textareaRef.current?.focus();
-        });
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto'; // Reset height
+          
+          // Use a small delay to ensure DOM updates first
+          setTimeout(() => {
+            textareaRef.current?.focus();
+            scrollToBottom("smooth");
+          }, 10);
+        }
       }
     }
   };
@@ -487,16 +545,22 @@ export default function ChatPage() {
           </Button>
           <div className="flex cursor-pointer items-center" onClick={handleProfileClick}>
             <div className="relative h-11 w-11">
-              <Image
-                src={otherPerson === "akash" ? "/a.jpeg" : "/d.jpeg"}
-                alt={otherPerson}
-                className="rounded-full object-cover"
-                width={44}
-                height={44}
-              />
+              {otherPerson === "akash" ? (
+                <Image
+                  src="/a.jpeg"
+                  alt="akash"
+                  className="rounded-full object-cover"
+                  width={44}
+                  height={44}
+                />
+              ) : (
+                <Avatar className="h-11 w-11">
+                  <AvatarFallback className="bg-primary text-white">DI</AvatarFallback>
+                </Avatar>
+              )}
             </div>
             <div className="ml-3">
-              <h2 className="text-xl font-semibold capitalize text-foreground">{otherPerson}</h2>
+              <h2 className="text-lg font-semibold capitalize text-white">{otherPerson}</h2>
             </div>
           </div>
         </div>
@@ -507,8 +571,8 @@ export default function ChatPage() {
             className={cn(
               "rounded-full p-2",
               role === 'akash' 
-                ? isMuted ? "bg-red-800 hover:bg-red-700 text-white" : "text-gray-300 hover:bg-gray-800" 
-                : isMuted ? "bg-destructive/80 hover:bg-destructive text-destructive-foreground" : "text-foreground/80 hover:bg-secondary"
+                ? isMuted ? "bg-red-800 text-white" : "text-gray-300 hover:bg-gray-800" 
+                : isMuted ? "bg-destructive/80 text-destructive-foreground" : "text-foreground/80 hover:bg-secondary"
             )}
             onClick={() => setIsMuted(!isMuted)}
           >
@@ -645,7 +709,7 @@ export default function ChatPage() {
           size="icon"
           className={cn(
             "mr-1 h-12 w-12 flex-shrink-0 rounded-full text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform",
-            role === 'akash' ? "bg-blue-600" : "bg-primary"
+            role === 'akash' ? "bg-blue-600 hover:bg-blue-600" : "bg-primary"
           )}
           onClick={handleCameraClick}
           aria-label="Take a photo"
@@ -659,7 +723,7 @@ export default function ChatPage() {
             rows={1}
             placeholder="Message..."
             className={cn(
-              "w-full border py-2 px-4 text-lg text-foreground placeholder:text-muted-foreground resize-none overflow-hidden focus:outline-none focus-visible:outline-none focus:border-input focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:ring-offset-0 min-h-[44px] leading-normal transition-all duration-200",
+              "w-full border py-2 px-4 text-base text-foreground placeholder:text-muted-foreground resize-none overflow-hidden focus:outline-none focus-visible:outline-none focus:border-input focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:ring-offset-0 min-h-[44px] leading-normal transition-all duration-200",
               role === 'akash' ? "bg-gray-800 border-gray-700" : "bg-input"
             )}
             value={newMessage}
@@ -674,6 +738,12 @@ export default function ChatPage() {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 handleSendMessage();
+                // Ensure the text area remains focused for the next message
+                if (isMobile) {
+                  setTimeout(() => {
+                    textareaRef.current?.focus();
+                  }, 10);
+                }
               }
             }}
             onFocus={handleInputFocus}
@@ -687,7 +757,9 @@ export default function ChatPage() {
           size="icon"
           className={cn(
             "ml-1 h-12 w-12 flex-shrink-0 rounded-full text-primary-foreground active:scale-95 transition-transform",
-            role === 'akash' ? "bg-blue-600" : "bg-primary"
+            role === 'akash' 
+              ? "bg-blue-600 hover:bg-blue-600" 
+              : "bg-primary hover:bg-primary/90"
           )}
           onClick={handleSendMessage}
           disabled={!newMessage.trim() || !isConnected}
@@ -725,7 +797,7 @@ export default function ChatPage() {
             <div className="flex flex-col space-y-3">
               <Button 
                 className={cn(
-                  "flex items-center justify-start text-lg font-normal p-4 h-auto",
+                  "flex items-center justify-start text-base font-normal p-4 h-auto",
                   role === 'akash' ? "bg-gray-800 hover:bg-gray-700 text-white" : ""
                 )}
                 onClick={handleCameraCapture}
@@ -735,7 +807,7 @@ export default function ChatPage() {
               </Button>
               <Button 
                 className={cn(
-                  "flex items-center justify-start text-lg font-normal p-4 h-auto",
+                  "flex items-center justify-start text-base font-normal p-4 h-auto",
                   role === 'akash' ? "bg-gray-800 hover:bg-gray-700 text-white" : ""
                 )}
                 onClick={handleGallerySelect}

@@ -194,7 +194,7 @@ export default function ChatMessage({
         <div
           style={{ willChange: 'transform, opacity' }}
           className={cn(
-            "relative inline-block rounded-[20px] text-lg max-w-[80vw] lg:max-w-lg transition-transform duration-200", // Added text-lg
+            "relative inline-block rounded-[20px] text-base max-w-[80vw] lg:max-w-lg transition-transform duration-200", // Changed from text-lg to text-base
             isUser
               ? userRole === 'akash' 
                 ? "bg-blue-600 text-white" // Blue bubbles for Akash
