@@ -589,8 +589,16 @@ export default function ChatPage() {
     };
   }, [clickTimeout]);
 
+  // Handle touch start on chat container
+  const handleChatContainerTouch = (e: React.TouchEvent) => {
+    // If the touch target is the chat container itself (not a message or interactive element)
+    if (e.target === chatContainerRef.current) {
+      e.preventDefault(); // Prevent keyboard popup
+    }
+  };
+
   return (
-    <div className="flex h-dvh flex-col bg-background overflow-hidden">
+    <div className="flex h-dvh flex-col bg-background">
       {/* Add overlay div */}
       <div className={cn(
         "fixed inset-0 bg-black/20 transition-opacity duration-300 z-10 pointer-events-none",
@@ -599,9 +607,10 @@ export default function ChatPage() {
       <div className={cn(
         "flex flex-col h-full relative z-20",
         "transition-opacity duration-300",
-        isMuted ? "opacity-60" : "opacity-100",
-        "overflow-hidden" // Ensure proper overflow containment
-      )}>
+        isMuted ? "opacity-60" : "opacity-100"
+      )}
+        onTouchStart={handleChatContainerTouch}
+      >
         <header className={cn(
           "flex flex-shrink-0 items-center justify-between border-b shadow-md",
           // Apply safe area inset padding for iOS notch
@@ -674,12 +683,11 @@ export default function ChatPage() {
             "relative flex-1 overflow-y-auto p-3 pb-1 sm:p-4",
             "pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]",
             isMobile && isKeyboardOpen ? "pb-4" : "",
-            "relative z-20",
-            "touch-none select-none" // Prevent text selection but allow scrolling
+            "relative z-20"
           )}
         >
           <ChatBackground role={role} />
-          <div className="relative z-10 space-y-0.5 pb-1 touch-auto select-text"> {/* Re-enable touch and text selection for messages */}
+          <div className="relative z-10 space-y-0.5 pb-1"> {/* Remove touch-auto since we're handling touch differently */}
             {(() => {
               let lastSeenIndex = -1;
               let lastUserMessageIndex = -1;
