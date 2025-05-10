@@ -636,7 +636,7 @@ export default function ChatPage() {
                 />
               ) : (
                 <Avatar className="h-11 w-11">
-                  <AvatarFallback className="bg-primary text-white">DI</AvatarFallback>
+                  <AvatarFallback className="bg-blue-600 text-white">DI</AvatarFallback>
                 </Avatar>
               )}
             </div>
@@ -647,13 +647,17 @@ export default function ChatPage() {
         </div>
         <div className="flex items-center">
           <Button 
-            variant="ghost" 
+            variant="ghost"
             size="icon" 
             className={cn(
-              "rounded-full p-2",
+              "rounded-full p-2 transition-none !duration-0 !bg-transparent",
               role === 'akash' 
-                ? isMuted ? "bg-red-800 text-white" : "text-gray-300 hover:bg-gray-800" 
-                : isMuted ? "bg-destructive/80 text-destructive-foreground" : "text-foreground/80 hover:bg-secondary"
+                ? isMuted 
+                  ? "!bg-red-800 !text-white hover:!bg-red-800 hover:!text-white active:!bg-red-800" 
+                  : "!text-gray-300 hover:!text-gray-300 hover:!bg-transparent active:!bg-transparent" 
+                : isMuted 
+                  ? "!bg-red-600 !text-white hover:!bg-red-600 hover:!text-white active:!bg-red-600" 
+                  : "!text-foreground/80 hover:!text-foreground/80 hover:!bg-transparent active:!bg-transparent"
             )}
             onClick={() => setIsMuted(!isMuted)}
           >

@@ -211,8 +211,8 @@ export default function ChatMessage({
               <Image
                 src={message.content}
                 alt="Shared image"
-                width={300}
-                height={300}
+                width={250}
+                height={250}
                 className="max-w-full h-auto rounded-md object-cover"
               />
             </div>
