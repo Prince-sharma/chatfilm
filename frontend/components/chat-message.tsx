@@ -197,7 +197,7 @@ export default function ChatMessage({
             "relative inline-block rounded-[20px] text-base max-w-[80vw] lg:max-w-lg transition-transform duration-200", // Changed from text-lg to text-base
             isUser
               ? userRole === 'akash' 
-                ? "bg-gray-800 text-white" // Greyish blue for Akash
+                ? "bg-blue-600 text-white" // Blue bubbles for Akash
                 : "bg-primary text-primary-foreground" // Default purple for Divyangini
               : "bg-card text-foreground shadow-sm border border-border/30",
             message.type === 'image' ? 'p-0 overflow-hidden' : 'px-4 py-2',
