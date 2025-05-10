@@ -603,6 +603,11 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-dvh flex-col bg-background">
+      {/* Add overlay div */}
+      <div className={cn(
+        "fixed inset-0 bg-black/20 transition-opacity duration-300 z-10 pointer-events-none",
+        isMuted ? "opacity-100" : "opacity-0"
+      )} />
       <header className={cn(
         "flex flex-shrink-0 items-center justify-between border-b shadow-md",
         // Apply safe area inset padding for iOS notch
@@ -610,7 +615,8 @@ export default function ChatPage() {
         "pt-[calc(env(safe-area-inset-top)+1rem)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]",
         role === 'akash' 
           ? "border-gray-800 bg-gray-900" 
-          : "border-border bg-card"
+          : "border-border bg-card",
+        "relative z-20" // Ensure header stays above overlay
       )}>
         <div className="flex items-center">
           <Button 
@@ -674,11 +680,13 @@ export default function ChatPage() {
           "relative flex-1 overflow-y-auto p-3 pb-1 sm:p-4",
           "pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]",
           // Add bottom padding when keyboard is open on mobile
-          isMobile && isKeyboardOpen ? "pb-4" : ""
+          isMobile && isKeyboardOpen ? "pb-4" : "",
+          "pointer-events-none", // Prevent container from triggering keyboard
+          "relative z-20" // Ensure chat content stays above overlay
         )}
       >
         <ChatBackground role={role} />
-        <div className="relative z-10 space-y-0.5 pb-1">
+        <div className="relative z-10 space-y-0.5 pb-1 pointer-events-auto"> {/* Re-enable pointer events for messages */}
           {(() => {
             let lastSeenIndex = -1;
             let lastUserMessageIndex = -1;
@@ -726,6 +734,7 @@ export default function ChatPage() {
                       text={message.content} 
                       onDelete={() => handleDeleteSeparator(message.id)}
                       onDragEnd={(clientY) => handleSeparatorDrag(message.id, clientY)}
+                      userRole={role}
                     />
                   </div>
                 ) : (
@@ -793,7 +802,8 @@ export default function ChatPage() {
         isMobile && isKeyboardOpen ? "pb-2" : "",
         role === 'akash' 
           ? "border-gray-800 bg-gray-900" 
-          : "border-border bg-card"
+          : "border-border bg-card",
+        "relative z-20" // Ensure footer stays above overlay
       )}>
         <Button
           className={cn(

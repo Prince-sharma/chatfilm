@@ -6,9 +6,10 @@ interface DaySeparatorProps {
   text: string;
   onDelete?: () => void;
   onDragEnd?: (clientY: number) => void;
+  userRole?: string;
 }
 
-export default function DaySeparator({ text, onDelete, onDragEnd }: DaySeparatorProps) {
+export default function DaySeparator({ text, onDelete, onDragEnd, userRole }: DaySeparatorProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartY, setDragStartY] = useState(0);
   const [dragCurrentY, setDragCurrentY] = useState(0);
@@ -170,7 +171,8 @@ export default function DaySeparator({ text, onDelete, onDragEnd }: DaySeparator
     >
       <div className={cn(
         "bg-muted text-muted-foreground text-sm font-medium rounded-full px-4 py-1.5 relative",
-        showDeleteIndicator ? "ring-2 ring-destructive ring-offset-2 ring-offset-background" : ""
+        showDeleteIndicator ? "ring-2 ring-destructive ring-offset-2 ring-offset-background" : "",
+        userRole === 'akash' ? "bg-gray-800/80 text-foreground border border-gray-700/50" : ""
       )}>
         {text}
         {showDeleteIndicator && (
