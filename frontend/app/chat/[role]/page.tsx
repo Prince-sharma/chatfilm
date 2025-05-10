@@ -112,40 +112,150 @@ export default function ChatPage() {
   useEffect(() => {
     if (!isMobile || !textareaRef.current) return;
     
-    // Listen for viewportchange events to catch keyboard status
-    const handleViewportChange = () => {
-      scrollToBottom("smooth");
+    // Function to help maintain keyboard focus and adjust layout
+    const maintainFocus = () => {
+      // Only refocus if the document is active
+      if (document.visibilityState === 'visible' && 
+          document.activeElement !== textareaRef.current) {
+        
+        // Get current viewport dimensions
+        const viewportHeight = window?.visualViewport?.height || window.innerHeight;
+        const windowHeight = window.innerHeight;
+        const keyboardHeight = windowHeight - viewportHeight;
+        
+        // If the keyboard appears to be closed (less than 100px difference)
+        // Don't force it back open
+        if (Math.abs(viewportHeight - windowHeight) < 100) {
+          // Keyboard appears closed, don't force focus
+          return;
+        }
+        
+        // Otherwise maintain focus and adjust layout
+        requestAnimationFrame(() => {
+          textareaRef.current?.focus();
+          scrollToBottom('smooth');
+        });
+      }
     };
     
-    // Use visualViewport API if available
+    // Listen for visibility changes to handle app switching
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setTimeout(maintainFocus, 300);
+      }
+    };
+    
+    // Handle visual viewport changes (keyboard open/close)
+    const handleViewportChange = () => {
+      if (!window.visualViewport) return;
+      
+      const viewportHeight = window.visualViewport.height;
+      const windowHeight = window.innerHeight;
+      const keyboardHeight = windowHeight - viewportHeight;
+      
+      // If keyboard is likely open (height difference > 100px)
+      if (keyboardHeight > 100) {
+        setIsKeyboardOpen(true);
+        
+        // Need to adjust message container and scroll position
+        requestAnimationFrame(() => {
+          // Apply bottom padding to chat container equal to keyboard height
+          if (chatContainerRef.current) {
+            scrollToBottom('smooth');
+          }
+        });
+      } else {
+        setIsKeyboardOpen(false);
+        
+        // Reset padding when keyboard closes
+        if (chatContainerRef.current) {
+          requestAnimationFrame(() => {
+            scrollToBottom('auto');
+          });
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Use visualViewport API if available (preferred for keyboard detection)
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', handleViewportChange);
+      window.visualViewport.addEventListener('scroll', handleViewportChange);
+    } else {
+      // Fallback for browsers without visualViewport API
+      window.addEventListener('resize', handleViewportChange);
     }
     
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (window.visualViewport) {
         window.visualViewport.removeEventListener('resize', handleViewportChange);
+        window.visualViewport.removeEventListener('scroll', handleViewportChange);
+      } else {
+        window.removeEventListener('resize', handleViewportChange);
       }
     };
   }, [isMobile, scrollToBottom]);
 
-  // Let handleInputFocus manage opening keyboard state
+  // Improved focus handling for mobile
   const handleInputFocus = () => {
     setIsKeyboardOpen(true);
     
-    // Slight delay to allow the keyboard to fully open before scrolling
-    if (isMobile) {
-      setTimeout(() => {
-        scrollToBottom('smooth');
-      }, 300);
-    } else {
-      setTimeout(() => scrollToBottom('smooth'), 100);
-    }
+    // Give the keyboard time to fully open before adjusting scroll
+    setTimeout(() => {
+      scrollToBottom('smooth');
+      
+      // Make sure input remains visible above keyboard
+      if (window?.visualViewport && textareaRef.current) {
+        const viewportHeight = window.visualViewport.height;
+        const inputRect = textareaRef.current.getBoundingClientRect();
+        
+        // If input is hidden by keyboard, scroll to make it visible
+        if (inputRect.bottom > viewportHeight) {
+          window.scrollTo({
+            top: window.scrollY + (inputRect.bottom - viewportHeight) + 16, // Add padding
+            behavior: 'smooth'
+          });
+        }
+      }
+    }, 300);
   };
 
-  // Let handleInputBlur manage closing keyboard state
-  const handleInputBlur = () => {
-    // Allow blur normally - OS back button or tapping outside will handle dismissal
+  // Handle blur - we don't want to lose focus accidentally on mobile
+  const handleInputBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    // On mobile, only allow blur in certain cases
+    if (isMobile) {
+      // Get the related target (what was clicked to cause the blur)
+      const relatedTarget = e.relatedTarget;
+      
+      // Allow blur when buttons are clicked (like send button)
+      const isSendButton = relatedTarget?.getAttribute('aria-label') === 'Send message';
+      const isCameraButton = relatedTarget?.getAttribute('aria-label') === 'Take a photo';
+      
+      if (isSendButton || isCameraButton) {
+        // Allow blur temporarily but restore focus after the action
+        setTimeout(() => {
+          if (document.activeElement?.tagName !== 'INPUT' && 
+              document.activeElement?.tagName !== 'TEXTAREA') {
+            textareaRef.current?.focus();
+          }
+        }, 100);
+        return;
+      }
+      
+      // For other cases (like clicking outside), determine if it was intentional
+      // by checking if another element was focused
+      setTimeout(() => {
+        const activeElement = document.activeElement;
+        if (activeElement === document.body) {
+          // Nothing else got focus, so restore input focus
+          textareaRef.current?.focus();
+        }
+      }, 100);
+    }
+    
+    // Update keyboard state
     setIsKeyboardOpen(false);
   };
 
@@ -226,9 +336,7 @@ export default function ChatPage() {
             const tempId = uuidv4();
 
             // Ensure focus *before* state updates on mobile
-            if (isMobile && textareaRef.current) {
-              textareaRef.current.focus();
-            }
+            if (isMobile) textareaRef.current?.focus();
             
             const optimisticImageMessage: Message = {
               id: tempId,
@@ -246,10 +354,9 @@ export default function ChatPage() {
 
             // Re-assert focus after potential DOM updates on mobile
             if (isMobile) {
-              requestAnimationFrame(() => {
-                textareaRef.current?.focus();
-                scrollToBottom("smooth");
-              });
+               requestAnimationFrame(() => {
+                  textareaRef.current?.focus();
+               });
             }
 
           } else {
@@ -279,32 +386,28 @@ export default function ChatPage() {
   const handleSendMessage = () => {
     const contentToSend = newMessage.trim();
     if (contentToSend) {
-      // Maintain focus before any state updates (important for mobile)
-      if (isMobile && textareaRef.current) {
-        textareaRef.current.focus();
-      }
-
       const tempId = uuidv4(); 
       const optimisticMessage: Message = { 
         id: tempId, clientId: tempId, sender: role, content: contentToSend,
         timestamp: new Date().toISOString(), seen: false, type: "text" as const,
       };
 
-      // Update state
+      // Update state first
       setMessages(prevMessages => [...prevMessages, optimisticMessage]);
       setNewMessage(''); 
       
       // Send the message
       sendMessage(contentToSend, tempId);
 
-      // Maintain focus after state updates using requestAnimationFrame for better timing
-      if (isMobile) {
+      // On mobile, ensure we maintain keyboard focus after sending
+      if (isMobile && textareaRef.current) {
+        // Reset height immediately
+        textareaRef.current.style.height = 'auto';
+        
+        // Ensure we keep focus and scroll to bottom
         requestAnimationFrame(() => {
-          if (textareaRef.current) {
-            textareaRef.current.style.height = 'auto'; // Reset height
-            textareaRef.current.focus();
-            scrollToBottom("smooth");
-          }
+          textareaRef.current?.focus();
+          scrollToBottom("smooth");
         });
       }
     }
@@ -550,7 +653,9 @@ export default function ChatPage() {
         ref={chatContainerRef} 
         className={cn(
           "relative flex-1 overflow-y-auto p-3 pb-1 sm:p-4",
-          "pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]"
+          "pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]",
+          // Add bottom padding when keyboard is open on mobile
+          isMobile && isKeyboardOpen ? "pb-4" : ""
         )}
       >
         <ChatBackground role={role} />
@@ -665,6 +770,8 @@ export default function ChatPage() {
         "flex flex-shrink-0 items-center border-t p-2 sm:p-3",
         // Apply safe area inset padding for bottom edges
         "pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]",
+        // Add additional padding when keyboard is open to prevent layout shifts
+        isMobile && isKeyboardOpen ? "pb-2" : "",
         role === 'akash' 
           ? "border-gray-800 bg-gray-900" 
           : "border-border bg-card"
@@ -689,7 +796,9 @@ export default function ChatPage() {
             placeholder="Message..."
             className={cn(
               "w-full border py-2 px-4 text-base text-foreground placeholder:text-muted-foreground resize-none overflow-hidden focus:outline-none focus-visible:outline-none focus:border-input focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:ring-offset-0 min-h-[44px] leading-normal transition-all duration-200",
-              role === 'akash' ? "bg-gray-800 border-gray-700" : "bg-input"
+              role === 'akash' ? "bg-gray-800 border-gray-700" : "bg-input",
+              // Add fixed position styles when keyboard is open on iOS
+              isMobile && isKeyboardOpen && /iPhone|iPad|iPod/.test(navigator.userAgent) ? "sticky bottom-0" : ""
             )}
             value={newMessage}
             onChange={(e) => {
