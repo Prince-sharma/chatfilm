@@ -618,7 +618,8 @@ export default function ChatPage() {
             size="icon" 
             className={cn(
               "mr-2 hover:bg-secondary",  
-              "text-white"
+              "text-white",
+              "ml-1"
             )} 
             onClick={() => router.push("/")}
           >
@@ -651,6 +652,7 @@ export default function ChatPage() {
             size="icon" 
             className={cn(
               "rounded-full p-2 transition-none !duration-0 !bg-transparent",
+              "mr-2",
               role === 'akash' 
                 ? isMuted 
                   ? "!bg-red-800 !text-white hover:!bg-red-800 hover:!text-white active:!bg-red-800" 
@@ -796,7 +798,8 @@ export default function ChatPage() {
         <Button
           className={cn(
             "mr-1 h-12 w-12 flex-shrink-0 rounded-full text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform",
-            role === 'akash' ? "bg-blue-600 hover:bg-blue-600" : "bg-primary"
+            role === 'akash' ? "bg-blue-600 hover:bg-blue-600" : "bg-primary",
+            "ml-2"
           )}
           onClick={handleCameraClick}
           aria-label="Take a photo"
@@ -842,7 +845,8 @@ export default function ChatPage() {
             "ml-1 h-12 w-12 flex-shrink-0 rounded-full text-primary-foreground active:scale-95 transition-transform",
             role === 'akash' 
               ? "bg-blue-600 hover:bg-blue-600" 
-              : "bg-primary hover:bg-primary/90"
+              : "bg-primary hover:bg-primary/90",
+            "mr-2"
           )}
           onClick={handleSendMessage}
           disabled={!newMessage.trim() || !isConnected}
