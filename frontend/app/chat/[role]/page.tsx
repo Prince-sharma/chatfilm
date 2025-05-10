@@ -114,9 +114,10 @@ export default function ChatPage() {
     
     // Function to help maintain keyboard focus and adjust layout
     const maintainFocus = () => {
-      // Only refocus if the document is active
+      // Only refocus if the document is active and keyboard should be shown
       if (document.visibilityState === 'visible' && 
-          document.activeElement !== textareaRef.current) {
+          document.activeElement !== textareaRef.current &&
+          isKeyboardOpen) {
         
         // Get current viewport dimensions
         const viewportHeight = window?.visualViewport?.height || window.innerHeight;
@@ -126,21 +127,22 @@ export default function ChatPage() {
         // If the keyboard appears to be closed (less than 100px difference)
         // Don't force it back open
         if (Math.abs(viewportHeight - windowHeight) < 100) {
-          // Keyboard appears closed, don't force focus
           return;
         }
         
         // Otherwise maintain focus and adjust layout
         requestAnimationFrame(() => {
-          textareaRef.current?.focus();
-          scrollToBottom('smooth');
+          if (isKeyboardOpen) {
+            textareaRef.current?.focus();
+            scrollToBottom('smooth');
+          }
         });
       }
     };
     
     // Listen for visibility changes to handle app switching
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && isKeyboardOpen) {
         setTimeout(maintainFocus, 300);
       }
     };
@@ -159,20 +161,10 @@ export default function ChatPage() {
         
         // Need to adjust message container and scroll position
         requestAnimationFrame(() => {
-          // Apply bottom padding to chat container equal to keyboard height
-          if (chatContainerRef.current) {
-            scrollToBottom('smooth');
-          }
+          scrollToBottom('smooth');
         });
       } else {
         setIsKeyboardOpen(false);
-        
-        // Reset padding when keyboard closes
-        if (chatContainerRef.current) {
-          requestAnimationFrame(() => {
-            scrollToBottom('auto');
-          });
-        }
       }
     };
     
@@ -187,6 +179,9 @@ export default function ChatPage() {
       window.addEventListener('resize', handleViewportChange);
     }
     
+    // Initial scroll to bottom
+    scrollToBottom('auto');
+    
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (window.visualViewport) {
@@ -196,10 +191,12 @@ export default function ChatPage() {
         window.removeEventListener('resize', handleViewportChange);
       }
     };
-  }, [isMobile, scrollToBottom]);
+  }, [isMobile, scrollToBottom, isKeyboardOpen]);
 
   // Improved focus handling for mobile
   const handleInputFocus = () => {
+    if (!isMobile) return;
+    
     setIsKeyboardOpen(true);
     
     // Give the keyboard time to fully open before adjusting scroll
@@ -214,51 +211,42 @@ export default function ChatPage() {
         // If input is hidden by keyboard, scroll to make it visible
         if (inputRect.bottom > viewportHeight) {
           window.scrollTo({
-            top: window.scrollY + (inputRect.bottom - viewportHeight) + 16, // Add padding
+            top: window.scrollY + (inputRect.bottom - viewportHeight) + 16,
             behavior: 'smooth'
           });
         }
       }
-    }, 300);
+    }, 100);
   };
 
   // Handle blur - we don't want to lose focus accidentally on mobile
   const handleInputBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
-    // On mobile, only allow blur in certain cases
-    if (isMobile) {
-      // Get the related target (what was clicked to cause the blur)
-      const relatedTarget = e.relatedTarget;
-      
-      // Allow blur when buttons are clicked (like send button)
-      const isSendButton = relatedTarget?.getAttribute('aria-label') === 'Send message';
-      const isCameraButton = relatedTarget?.getAttribute('aria-label') === 'Take a photo';
-      
-      if (isSendButton || isCameraButton) {
-        // Prevent keyboard from hiding by immediately re-focusing
-        e.preventDefault();
-        
-        // Use more immediate focus restoration - don't wait for timeout
-        requestAnimationFrame(() => {
-          textareaRef.current?.focus();
-        });
-        return;
-      }
-      
-      // For other cases (like clicking outside), determine if it was intentional
-      // by checking if another element was focused
-      setTimeout(() => {
-        const activeElement = document.activeElement;
-        if (activeElement === document.body) {
-          // Nothing else got focus, so restore input focus
-          textareaRef.current?.focus();
-        }
-      }, 100);
+    if (!isMobile) return;
+    
+    // Get the related target (what was clicked to cause the blur)
+    const relatedTarget = e.relatedTarget;
+    
+    // Allow blur when buttons are clicked (like send button)
+    const isSendButton = relatedTarget?.getAttribute('aria-label') === 'Send message';
+    const isCameraButton = relatedTarget?.getAttribute('aria-label') === 'Take a photo';
+    
+    if (isSendButton || isCameraButton) {
+      e.preventDefault();
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+      });
+      return;
     }
     
-    // Only update keyboard state if we're truly blurring
-    if (!isMobile || !e.relatedTarget) {
-      setIsKeyboardOpen(false);
-    }
+    // For other cases, determine if it was intentional
+    setTimeout(() => {
+      const activeElement = document.activeElement;
+      if (activeElement === document.body) {
+        textareaRef.current?.focus();
+      } else {
+        setIsKeyboardOpen(false);
+      }
+    }, 100);
   };
 
   useEffect(() => {
@@ -608,264 +596,267 @@ export default function ChatPage() {
         "fixed inset-0 bg-black/20 transition-opacity duration-300 z-10 pointer-events-none",
         isMuted ? "opacity-100" : "opacity-0"
       )} />
-      <header className={cn(
-        "flex flex-shrink-0 items-center justify-between border-b shadow-md",
-        // Apply safe area inset padding for iOS notch
-        "pt-4 pb-4 px-4",
-        "pt-[calc(env(safe-area-inset-top)+1rem)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]",
-        role === 'akash' 
-          ? "border-gray-800 bg-gray-900" 
-          : "border-border bg-card",
-        "relative z-20" // Ensure header stays above overlay
+      <div className={cn(
+        "flex flex-col h-full relative z-20",
+        "transition-opacity duration-300",
+        isMuted ? "opacity-60" : "opacity-100"
       )}>
-        <div className="flex items-center">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className={cn(
-              "mr-2 hover:bg-secondary",  
-              "text-white",
-              "ml-1"
-            )} 
-            onClick={() => router.push("/")}
-          >
-            <ArrowLeft size={26} />
-          </Button>
-          <div className="flex cursor-pointer items-center" onClick={handleProfileClick}>
-            <div className="relative h-11 w-11">
-              {otherPerson === "akash" ? (
-                <Image
-                  src="/a.jpeg"
-                  alt="akash"
-                  className="rounded-full object-cover"
-                  width={44}
-                  height={44}
-                />
-              ) : (
-                <Avatar className="h-11 w-11">
-                  <AvatarFallback className="bg-blue-600 text-white font-bold">DI</AvatarFallback>
-                </Avatar>
-              )}
-            </div>
-            <div className="ml-3">
-              <h2 className="text-lg font-semibold capitalize text-white font-bold tracking-wide">{otherPerson}</h2>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center">
-          <Button 
-            variant="ghost"
-            size="icon" 
-            className={cn(
-              "rounded-full p-2 transition-none !duration-0 !bg-transparent",
-              "mr-2",
-              role === 'akash' 
-                ? isMuted 
-                  ? "!bg-red-800 !text-white hover:!bg-red-800 hover:!text-white active:!bg-red-800" 
-                  : "!text-gray-300 hover:!text-gray-300 hover:!bg-transparent active:!bg-transparent" 
-                : isMuted 
-                  ? "!bg-red-600 !text-white hover:!bg-red-600 hover:!text-white active:!bg-red-600" 
-                  : "!text-foreground/80 hover:!text-foreground/80 hover:!bg-transparent active:!bg-transparent"
-            )}
-            onClick={() => setIsMuted(!isMuted)}
-          >
-            {isMuted ? <BellOff size={22} /> : <Bell size={22} />}
-          </Button>
-        </div>
-      </header>
-
-      <div 
-        ref={chatContainerRef} 
-        className={cn(
-          "relative flex-1 overflow-y-auto p-3 pb-1 sm:p-4",
-          "pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]",
-          // Add bottom padding when keyboard is open on mobile
-          isMobile && isKeyboardOpen ? "pb-4" : "",
-          "pointer-events-none", // Prevent container from triggering keyboard
-          "relative z-20" // Ensure chat content stays above overlay
-        )}
-      >
-        <ChatBackground role={role} />
-        <div className="relative z-10 space-y-0.5 pb-1 pointer-events-auto"> {/* Re-enable pointer events for messages */}
-          {(() => {
-            let lastSeenIndex = -1;
-            let lastUserMessageIndex = -1;
-            let lastOtherPersonMessageIndex = -1;
-            
-            // First, find the last message from the current user
-            for (let i = messages.length - 1; i >= 0; i--) {
-              if (messages[i].sender === role && messages[i].type !== 'day-separator') {
-                lastUserMessageIndex = i;
-                break;
-              }
-            }
-            
-            // Find the last message from the other person
-            for (let i = messages.length - 1; i >= 0; i--) {
-              if (messages[i].sender === otherPerson && messages[i].type !== 'day-separator') {
-                lastOtherPersonMessageIndex = i;
-                break;
-              }
-            }
-            
-            // Then find the last seen message from the current user
-            for (let i = messages.length - 1; i >= 0; i--) {
-              if (messages[i].sender === role && messages[i].seen && messages[i].type !== 'day-separator') {
-                lastSeenIndex = i;
-                break;
-              }
-            }
-            
-            // Only show "Seen" if:
-            // 1. The last seen message is also the last message from the user in the conversation
-            // 2. There are no messages from the other person after this seen message
-            const validLastSeenIndex = 
-              lastSeenIndex === lastUserMessageIndex && 
-              (lastOtherPersonMessageIndex === -1 || lastOtherPersonMessageIndex < lastSeenIndex) 
-                ? lastSeenIndex 
-                : -1;
-
-            return messages.map((message, index) => (
-              <React.Fragment key={message.clientId || message.id}>
-                {/* Render based on message type */}
-                {message.type === 'day-separator' ? (
-                  <div data-separator-id={message.id}>
-                    <DaySeparator 
-                      text={message.content} 
-                      onDelete={() => handleDeleteSeparator(message.id)}
-                      onDragEnd={(clientY) => handleSeparatorDrag(message.id, clientY)}
-                      userRole={role}
-                    />
-                  </div>
-                ) : (
-                  <div 
-                    data-message-id={message.id} 
-                    data-sender={message.sender}
-                    className="transition-all duration-300 ease-in-out"
-                  >
-                    <ChatMessage 
-                      message={message} 
-                      currentUser={role} 
-                      onImageClick={setViewingImage}
-                      onDeleteMessage={() => handleDeleteMessage(message.clientId || message.id)} 
-                      isLastSeenByOther={index === validLastSeenIndex} 
-                      userRole={role}
-                    />
-                  </div>
-                )}
-                
-                {/* Area between messages for triple-click */}
-                {index < messages.length - 1 && (
-                  <div 
-                    className={cn(
-                      "h-0.5 w-full cursor-pointer transition-colors duration-200",
-                      clickCount > 0 && insertPosition === index ? "bg-muted/40 hover:bg-muted/50" : "hover:bg-muted/30"
-                    )}
-                    onClick={(e) => handleClickArea(e, index)}
+        <header className={cn(
+          "flex flex-shrink-0 items-center justify-between border-b shadow-md",
+          // Apply safe area inset padding for iOS notch
+          "pt-4 pb-4 px-4",
+          "pt-[calc(env(safe-area-inset-top)+1rem)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]",
+          role === 'akash' 
+            ? "border-gray-800 bg-gray-900" 
+            : "border-border bg-card",
+          "relative z-20" // Ensure header stays above overlay
+        )}>
+          <div className="flex items-center">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className={cn(
+                "mr-2 hover:bg-secondary",  
+                "text-white",
+                "ml-1"
+              )} 
+              onClick={() => router.push("/")}
+            >
+              <ArrowLeft size={26} />
+            </Button>
+            <div className="flex cursor-pointer items-center" onClick={handleProfileClick}>
+              <div className="relative h-11 w-11">
+                {otherPerson === "akash" ? (
+                  <Image
+                    src="/a.jpeg"
+                    alt="akash"
+                    className="rounded-full object-cover"
+                    width={44}
+                    height={44}
                   />
+                ) : (
+                  <Avatar className="h-11 w-11">
+                    <AvatarFallback className="bg-blue-600 text-white font-bold">DI</AvatarFallback>
+                  </Avatar>
                 )}
-              </React.Fragment>
-            ));
-          })()}
-          {isTyping && (
-            <div className={`flex justify-start animate-pulse`}>
-              <div className={cn(
-                "ml-2 rounded-full px-4 py-2 shadow-md",
-                role === 'akash' ? "bg-gray-800" : "bg-secondary"
-              )}>
-                <div className="flex items-center space-x-1">
-                  <div className={cn(
-                    "h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:-0.3s]",
-                    role === 'akash' ? "bg-blue-400" : "bg-muted-foreground"
-                  )}></div>
-                  <div className={cn(
-                    "h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:-0.15s]",
-                    role === 'akash' ? "bg-blue-400" : "bg-muted-foreground"
-                  )}></div>
-                  <div className={cn(
-                    "h-1.5 w-1.5 animate-bounce rounded-full",
-                    role === 'akash' ? "bg-blue-400" : "bg-muted-foreground"
-                  )}></div>
-                </div>
+              </div>
+              <div className="ml-3">
+                <h2 className="text-lg font-semibold capitalize text-white font-bold tracking-wide">{otherPerson}</h2>
               </div>
             </div>
-          )}
-          <div ref={messagesEndRef} className="h-0.5" />
-        </div>
-      </div>
+          </div>
+          <div className="flex items-center">
+            <Button 
+              variant="ghost"
+              size="icon" 
+              className={cn(
+                "rounded-full p-2 transition-none !duration-0 !bg-transparent",
+                "mr-2",
+                role === 'akash' 
+                  ? isMuted 
+                    ? "!bg-red-800 !text-white hover:!bg-red-800 hover:!text-white active:!bg-red-800" 
+                    : "!text-gray-300 hover:!text-gray-300 hover:!bg-transparent active:!bg-transparent" 
+                  : isMuted 
+                    ? "!bg-red-600 !text-white hover:!bg-red-600 hover:!text-white active:!bg-red-600" 
+                    : "!text-foreground/80 hover:!text-foreground/80 hover:!bg-transparent active:!bg-transparent"
+              )}
+              onClick={() => setIsMuted(!isMuted)}
+            >
+              {isMuted ? <BellOff size={22} /> : <Bell size={22} />}
+            </Button>
+          </div>
+        </header>
 
-      <div className={cn(
-        "flex flex-shrink-0 items-center border-t p-2 sm:p-3",
-        // Apply safe area inset padding for bottom edges
-        "pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]",
-        // Add additional padding when keyboard is open to prevent layout shifts
-        isMobile && isKeyboardOpen ? "pb-2" : "",
-        role === 'akash' 
-          ? "border-gray-800 bg-gray-900" 
-          : "border-border bg-card",
-        "relative z-20" // Ensure footer stays above overlay
-      )}>
-        <Button
+        <div 
+          ref={chatContainerRef} 
           className={cn(
-            "mr-1 h-12 w-12 flex-shrink-0 rounded-full text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform",
-            role === 'akash' ? "bg-blue-600 hover:bg-blue-600" : "bg-primary",
-            "ml-2"
+            "relative flex-1 overflow-y-auto p-3 pb-1 sm:p-4",
+            "pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]",
+            isMobile && isKeyboardOpen ? "pb-4" : "",
+            "relative z-20",
+            "touch-none"
           )}
-          onClick={handleCameraClick}
-          aria-label="Take a photo"
-          // Prevent keyboard from hiding on iOS when camera button is clicked
-          onMouseDown={(e) => isMobile && e.preventDefault()}
         >
-          <Camera size={24} />
-        </Button>
+          <ChatBackground role={role} />
+          <div className="relative z-10 space-y-0.5 pb-1 touch-auto"> {/* Re-enable touch events for messages */}
+            {(() => {
+              let lastSeenIndex = -1;
+              let lastUserMessageIndex = -1;
+              let lastOtherPersonMessageIndex = -1;
+              
+              // First, find the last message from the current user
+              for (let i = messages.length - 1; i >= 0; i--) {
+                if (messages[i].sender === role && messages[i].type !== 'day-separator') {
+                  lastUserMessageIndex = i;
+                  break;
+                }
+              }
+              
+              // Find the last message from the other person
+              for (let i = messages.length - 1; i >= 0; i--) {
+                if (messages[i].sender === otherPerson && messages[i].type !== 'day-separator') {
+                  lastOtherPersonMessageIndex = i;
+                  break;
+                }
+              }
+              
+              // Then find the last seen message from the current user
+              for (let i = messages.length - 1; i >= 0; i--) {
+                if (messages[i].sender === role && messages[i].seen && messages[i].type !== 'day-separator') {
+                  lastSeenIndex = i;
+                  break;
+                }
+              }
+              
+              // Only show "Seen" if:
+              // 1. The last seen message is also the last message from the user in the conversation
+              // 2. There are no messages from the other person after this seen message
+              const validLastSeenIndex = 
+                lastSeenIndex === lastUserMessageIndex && 
+                (lastOtherPersonMessageIndex === -1 || lastOtherPersonMessageIndex < lastSeenIndex) 
+                  ? lastSeenIndex 
+                  : -1;
 
-        <div className="relative flex-1 mx-1">
-          <Textarea
-            ref={textareaRef}
-            rows={1}
-            placeholder="Message..."
-            className={cn(
-              "w-full border py-2 px-4 text-base text-foreground placeholder:text-muted-foreground resize-none overflow-hidden focus:outline-none focus-visible:outline-none focus:border-input focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:ring-offset-0 min-h-[44px] leading-normal transition-all duration-200",
-              role === 'akash' ? "bg-gray-800 border-gray-700" : "bg-input",
-              // Add fixed position styles when keyboard is open on iOS
-              isMobile && isKeyboardOpen && /iPhone|iPad|iPod/.test(navigator.userAgent) ? "sticky bottom-0" : ""
+              return messages.map((message, index) => (
+                <React.Fragment key={message.clientId || message.id}>
+                  {/* Render based on message type */}
+                  {message.type === 'day-separator' ? (
+                    <div data-separator-id={message.id} className="relative z-20">
+                      <DaySeparator 
+                        text={message.content} 
+                        onDelete={() => handleDeleteSeparator(message.id)}
+                        onDragEnd={(clientY) => handleSeparatorDrag(message.id, clientY)}
+                        userRole={role}
+                      />
+                    </div>
+                  ) : (
+                    <div 
+                      data-message-id={message.id} 
+                      data-sender={message.sender}
+                      className="transition-all duration-300 ease-in-out"
+                    >
+                      <ChatMessage 
+                        message={message} 
+                        currentUser={role} 
+                        onImageClick={setViewingImage}
+                        onDeleteMessage={() => handleDeleteMessage(message.clientId || message.id)} 
+                        isLastSeenByOther={index === validLastSeenIndex} 
+                        userRole={role}
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Area between messages for triple-click */}
+                  {index < messages.length - 1 && (
+                    <div 
+                      className={cn(
+                        "h-0.5 w-full cursor-pointer transition-colors duration-200",
+                        clickCount > 0 && insertPosition === index ? "bg-muted/40 hover:bg-muted/50" : "hover:bg-muted/30"
+                      )}
+                      onClick={(e) => handleClickArea(e, index)}
+                    />
+                  )}
+                </React.Fragment>
+              ));
+            })()}
+            {isTyping && (
+              <div className={`flex justify-start animate-pulse`}>
+                <div className={cn(
+                  "ml-2 rounded-full px-4 py-2 shadow-md",
+                  role === 'akash' ? "bg-gray-800" : "bg-secondary"
+                )}>
+                  <div className="flex items-center space-x-1">
+                    <div className={cn(
+                      "h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:-0.3s]",
+                      role === 'akash' ? "bg-blue-400" : "bg-muted-foreground"
+                    )}></div>
+                    <div className={cn(
+                      "h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:-0.15s]",
+                      role === 'akash' ? "bg-blue-400" : "bg-muted-foreground"
+                    )}></div>
+                    <div className={cn(
+                      "h-1.5 w-1.5 animate-bounce rounded-full",
+                      role === 'akash' ? "bg-blue-400" : "bg-muted-foreground"
+                    )}></div>
+                  </div>
+                </div>
+              </div>
             )}
-            value={newMessage}
-            onChange={(e) => {
-              setNewMessage(e.target.value);
-              // Emit typing event to server when user types
-              if (e.target.value.trim()) {
-                startTyping();
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage();
-              }
-            }}
-            onFocus={handleInputFocus}
-            onBlur={handleInputBlur}
-            autoComplete="off"
-          />
+            <div ref={messagesEndRef} className="h-0.5" />
+          </div>
         </div>
 
-        <Button
-          className={cn(
-            "ml-1 h-12 w-12 flex-shrink-0 rounded-full text-primary-foreground active:scale-95 transition-transform",
-            role === 'akash' 
-              ? "bg-blue-600 hover:bg-blue-600" 
-              : "bg-primary hover:bg-primary/90",
-            "mr-2"
-          )}
-          onClick={handleSendMessage}
-          disabled={!newMessage.trim() || !isConnected}
-          aria-label="Send message"
-          // Prevent keyboard dismissal on mobile
-          onMouseDown={(e) => isMobile && e.preventDefault()}
-        >
-          <SendHorizontal size={24} />
-        </Button>
+        <div className={cn(
+          "flex flex-shrink-0 items-center border-t p-2 sm:p-3",
+          "pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]",
+          isMobile && isKeyboardOpen ? "pb-2" : "",
+          role === 'akash' 
+            ? "border-gray-800 bg-gray-900" 
+            : "border-border bg-card",
+          "relative z-20"
+        )}>
+          <Button
+            className={cn(
+              "mr-1 h-12 w-12 flex-shrink-0 rounded-full text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform",
+              role === 'akash' ? "bg-blue-600 hover:bg-blue-600" : "bg-primary",
+              "ml-2"
+            )}
+            onClick={handleCameraClick}
+            aria-label="Take a photo"
+            // Prevent keyboard from hiding on iOS when camera button is clicked
+            onMouseDown={(e) => isMobile && e.preventDefault()}
+          >
+            <Camera size={24} />
+          </Button>
+
+          <div className="relative flex-1 mx-1">
+            <Textarea
+              ref={textareaRef}
+              rows={1}
+              placeholder="Message..."
+              className={cn(
+                "w-full border py-2 px-4 text-base text-foreground placeholder:text-muted-foreground resize-none overflow-hidden focus:outline-none focus-visible:outline-none focus:border-input focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:ring-offset-0 min-h-[44px] leading-normal transition-all duration-200",
+                role === 'akash' ? "bg-gray-800 border-gray-700" : "bg-input",
+                // Add fixed position styles when keyboard is open on iOS
+                isMobile && isKeyboardOpen && /iPhone|iPad|iPod/.test(navigator.userAgent) ? "sticky bottom-0" : ""
+              )}
+              value={newMessage}
+              onChange={(e) => {
+                setNewMessage(e.target.value);
+                // Emit typing event to server when user types
+                if (e.target.value.trim()) {
+                  startTyping();
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              onFocus={handleInputFocus}
+              onBlur={handleInputBlur}
+              autoComplete="off"
+            />
+          </div>
+
+          <Button
+            className={cn(
+              "ml-1 h-12 w-12 flex-shrink-0 rounded-full text-primary-foreground active:scale-95 transition-transform",
+              role === 'akash' 
+                ? "bg-blue-600 hover:bg-blue-600" 
+                : "bg-primary hover:bg-primary/90",
+              "mr-2"
+            )}
+            onClick={handleSendMessage}
+            disabled={!newMessage.trim() || !isConnected}
+            aria-label="Send message"
+            // Prevent keyboard dismissal on mobile
+            onMouseDown={(e) => isMobile && e.preventDefault()}
+          >
+            <SendHorizontal size={24} />
+          </Button>
+        </div>
       </div>
 
       {/* Day separator dialog */}

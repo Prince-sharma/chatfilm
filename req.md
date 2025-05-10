@@ -1,3 +1,13 @@
+When muting a conversations, the date seperators added are gettig diappeared. Also the date seperators are not getting retained when i go back and choose the other character. 
+
+The date seperator should be added in sync with both the character conversations, so when we add a date seperator in on chat screen the same should be added in the other charcatter screen in the same place and it should persist as the other messages, even if the user goes back and opens the chat again.
+
+Also, there's an issue when the user mutes the conversation the date seperator goes away. ths hsould not happen the date sperator should persist 
+
+do not break any other existing fucntionaluty 
+
+
+
 Can you make the below changes:
 
 1. Reduce the font size overall by 2px 
