@@ -590,7 +590,7 @@ export default function ChatPage() {
   }, [clickTimeout]);
 
   return (
-    <div className="flex h-dvh flex-col bg-background">
+    <div className="flex h-dvh flex-col bg-background overflow-hidden">
       {/* Add overlay div */}
       <div className={cn(
         "fixed inset-0 bg-black/20 transition-opacity duration-300 z-10 pointer-events-none",
@@ -599,7 +599,8 @@ export default function ChatPage() {
       <div className={cn(
         "flex flex-col h-full relative z-20",
         "transition-opacity duration-300",
-        isMuted ? "opacity-60" : "opacity-100"
+        isMuted ? "opacity-60" : "opacity-100",
+        "overflow-hidden" // Ensure proper overflow containment
       )}>
         <header className={cn(
           "flex flex-shrink-0 items-center justify-between border-b shadow-md",
@@ -674,11 +675,11 @@ export default function ChatPage() {
             "pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]",
             isMobile && isKeyboardOpen ? "pb-4" : "",
             "relative z-20",
-            "touch-none"
+            "touch-none select-none" // Prevent text selection but allow scrolling
           )}
         >
           <ChatBackground role={role} />
-          <div className="relative z-10 space-y-0.5 pb-1 touch-auto"> {/* Re-enable touch events for messages */}
+          <div className="relative z-10 space-y-0.5 pb-1 touch-auto select-text"> {/* Re-enable touch and text selection for messages */}
             {(() => {
               let lastSeenIndex = -1;
               let lastUserMessageIndex = -1;
