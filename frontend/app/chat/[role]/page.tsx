@@ -234,13 +234,13 @@ export default function ChatPage() {
       const isCameraButton = relatedTarget?.getAttribute('aria-label') === 'Take a photo';
       
       if (isSendButton || isCameraButton) {
-        // Allow blur temporarily but restore focus after the action
-        setTimeout(() => {
-          if (document.activeElement?.tagName !== 'INPUT' && 
-              document.activeElement?.tagName !== 'TEXTAREA') {
-            textareaRef.current?.focus();
-          }
-        }, 100);
+        // Prevent keyboard from hiding by immediately re-focusing
+        e.preventDefault();
+        
+        // Use more immediate focus restoration - don't wait for timeout
+        requestAnimationFrame(() => {
+          textareaRef.current?.focus();
+        });
         return;
       }
       
@@ -255,8 +255,10 @@ export default function ChatPage() {
       }, 100);
     }
     
-    // Update keyboard state
-    setIsKeyboardOpen(false);
+    // Only update keyboard state if we're truly blurring
+    if (!isMobile || !e.relatedTarget) {
+      setIsKeyboardOpen(false);
+    }
   };
 
   useEffect(() => {
@@ -392,6 +394,12 @@ export default function ChatPage() {
         timestamp: new Date().toISOString(), seen: false, type: "text" as const,
       };
 
+      // On mobile, prevent keyboard hiding by saving focus state
+      let hadFocus = false;
+      if (isMobile && textareaRef.current) {
+        hadFocus = document.activeElement === textareaRef.current;
+      }
+
       // Update state first
       setMessages(prevMessages => [...prevMessages, optimisticMessage]);
       setNewMessage(''); 
@@ -404,11 +412,16 @@ export default function ChatPage() {
         // Reset height immediately
         textareaRef.current.style.height = 'auto';
         
-        // Ensure we keep focus and scroll to bottom
-        requestAnimationFrame(() => {
-          textareaRef.current?.focus();
-          scrollToBottom("smooth");
-        });
+        // Use immediate focus restoration to prevent keyboard flashing
+        if (hadFocus) {
+          // Need to keep focus without allowing the browser to hide the keyboard
+          textareaRef.current.focus({preventScroll: true});
+          
+          // Then scroll after a tiny delay to ensure keyboard remains visible
+          requestAnimationFrame(() => {
+            scrollToBottom("smooth");
+          });
+        }
       }
     }
   };
@@ -777,14 +790,14 @@ export default function ChatPage() {
           : "border-border bg-card"
       )}>
         <Button
-          variant="ghost"
-          size="icon"
           className={cn(
             "mr-1 h-12 w-12 flex-shrink-0 rounded-full text-primary-foreground hover:bg-primary/90 active:scale-95 transition-transform",
             role === 'akash' ? "bg-blue-600 hover:bg-blue-600" : "bg-primary"
           )}
           onClick={handleCameraClick}
           aria-label="Take a photo"
+          // Prevent keyboard from hiding on iOS when camera button is clicked
+          onMouseDown={(e) => isMobile && e.preventDefault()}
         >
           <Camera size={24} />
         </Button>
@@ -821,8 +834,6 @@ export default function ChatPage() {
         </div>
 
         <Button
-          variant="ghost"
-          size="icon"
           className={cn(
             "ml-1 h-12 w-12 flex-shrink-0 rounded-full text-primary-foreground active:scale-95 transition-transform",
             role === 'akash' 
@@ -832,6 +843,8 @@ export default function ChatPage() {
           onClick={handleSendMessage}
           disabled={!newMessage.trim() || !isConnected}
           aria-label="Send message"
+          // Prevent keyboard dismissal on mobile
+          onMouseDown={(e) => isMobile && e.preventDefault()}
         >
           <SendHorizontal size={24} />
         </Button>
