@@ -618,7 +618,7 @@ export default function ChatPage() {
             size="icon" 
             className={cn(
               "mr-2 hover:bg-secondary",  
-              role === 'akash' ? "text-gray-300" : "text-foreground/80"
+              "text-white"
             )} 
             onClick={() => router.push("/")}
           >
@@ -636,7 +636,7 @@ export default function ChatPage() {
                 />
               ) : (
                 <Avatar className="h-11 w-11">
-                  <AvatarFallback className="bg-blue-600 text-white">DI</AvatarFallback>
+                  <AvatarFallback className="bg-blue-600 text-white font-bold">DI</AvatarFallback>
                 </Avatar>
               )}
             </div>
