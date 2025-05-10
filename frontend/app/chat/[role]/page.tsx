@@ -641,7 +641,7 @@ export default function ChatPage() {
               )}
             </div>
             <div className="ml-3">
-              <h2 className="text-lg font-semibold capitalize text-white">{otherPerson}</h2>
+              <h2 className="text-lg font-semibold capitalize text-white font-bold tracking-wide">{otherPerson}</h2>
             </div>
           </div>
         </div>

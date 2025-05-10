@@ -194,12 +194,14 @@ export default function ChatMessage({
         <div
           style={{ willChange: 'transform, opacity' }}
           className={cn(
-            "relative inline-block rounded-[20px] text-base max-w-[80vw] lg:max-w-lg transition-transform duration-200", // Changed from text-lg to text-base
+            "relative inline-block rounded-[20px] text-base max-w-[80vw] lg:max-w-lg transition-transform duration-200 font-medium", // Added font-medium for more brightness
             isUser
               ? userRole === 'akash' 
                 ? "bg-blue-600 text-white" // Blue bubbles for Akash
                 : "bg-primary text-primary-foreground" // Default purple for Divyangini
-              : "bg-card text-foreground shadow-sm border border-border/30",
+              : userRole === 'akash'
+                ? "bg-gray-800/80 text-foreground shadow-sm border border-gray-700/50" // More grayish with subtle blue undertone
+                : "bg-card text-foreground shadow-sm border border-border/30", // Default for Divyangini
             message.type === 'image' ? 'p-0 overflow-hidden' : 'px-4 py-2',
             // Apply slight scale effect when delete button is shown
             showDeleteButton && isUser ? "scale-[0.98]" : "scale-100"
