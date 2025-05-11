@@ -12,7 +12,9 @@ import {
   BellOff,
   Bell,
   SendHorizontal,
-  ImageIcon
+  ImageIcon,
+  ChevronDown,
+  Scissors
 } from "lucide-react"
 import ChatMessage from "@/components/chat-message"
 import ImageViewer from "@/components/image-viewer"
@@ -27,7 +29,6 @@ import DaySeparatorDialog from "@/components/day-separator-dialog"
 import { type Message } from "@/lib/chat-data"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import MuteAnimation from "@/components/mute-animation"
-import MessageContextMenu from "@/components/message-context-menu"
 
 type ValidRole = 'akash' | 'divyangini'
 
@@ -83,6 +84,9 @@ export default function ChatPage() {
   const [showMediaOptions, setShowMediaOptions] = useState(false);
   const [showMuteAnimation, setShowMuteAnimation] = useState(false);
   const [isMuting, setIsMuting] = useState(false);
+  const [showSeparatorButton, setShowSeparatorButton] = useState(false);
+  const [longPressPosition, setLongPressPosition] = useState({ x: 0, y: 0 });
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Detect mobile devices
   useEffect(() => {
@@ -590,8 +594,20 @@ export default function ChatPage() {
       if (clickTimeout) {
         clearTimeout(clickTimeout);
       }
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
     };
   }, [clickTimeout]);
+
+  // Handle touch start on chat container
+  const handleChatContainerTouch = (e: React.TouchEvent) => {
+    // If the touch target is the chat container itself (not a message or interactive element)
+    if (e.target === chatContainerRef.current) {
+      e.preventDefault(); // Prevent keyboard popup
+    }
+  };
 
   // Handle mute toggle with animation
   const handleMuteToggle = () => {
@@ -606,9 +622,83 @@ export default function ChatPage() {
     }, 800);
   };
 
-  // Handle separator addition from context menu
-  const handleAddSeparatorAtMessage = (index: number) => {
-    setInsertPosition(index);
+  // Handle long press on chat container
+  const handleChatContainerLongPress = (e: React.TouchEvent | React.MouseEvent) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+    
+    // Get the client coordinates from either touch or mouse event
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    
+    // Set timer for long press (700ms)
+    longPressTimerRef.current = setTimeout(() => {
+      // Calculate nearest message index based on position
+      let targetIndex = 0;
+      
+      if (chatContainerRef.current) {
+        const messageElements = Array.from(chatContainerRef.current.querySelectorAll('[data-message-id]'));
+        
+        // Find the message closest to the press position
+        let closestDistance = Infinity;
+        let closestIndex = 0;
+        
+        messageElements.forEach((element, index) => {
+          const rect = element.getBoundingClientRect();
+          const distance = Math.abs(rect.top + rect.height/2 - clientY);
+          
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            closestIndex = index;
+          }
+        });
+        
+        targetIndex = closestIndex;
+      }
+      
+      // Store the insert position
+      setInsertPosition(targetIndex);
+      
+      // Store position for the button
+      setLongPressPosition({ x: clientX, y: clientY });
+      setShowSeparatorButton(true);
+      
+      // Add haptic feedback if available
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }, 700);
+  };
+  
+  const handleChatContainerPressEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+  
+  // Close separator button when clicking elsewhere
+  useEffect(() => {
+    if (!showSeparatorButton) return;
+    
+    const handleClickOutside = () => {
+      setShowSeparatorButton(false);
+    };
+    
+    document.addEventListener('click', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside, { passive: false });
+    
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showSeparatorButton]);
+  
+  // Open separator dialog from floating button
+  const handleSeparatorButtonClick = (e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation(); // Prevent closing the button immediately
+    setShowSeparatorButton(false);
     setSeparatorDialogOpen(true);
   };
 
@@ -629,6 +719,15 @@ export default function ChatPage() {
         "transition-opacity duration-300",
         isMuted ? "opacity-60" : "opacity-100"
       )}
+        onTouchStart={(e) => {
+          handleChatContainerTouch(e);
+          handleChatContainerLongPress(e);
+        }}
+        onMouseDown={handleChatContainerLongPress}
+        onTouchEnd={handleChatContainerPressEnd}
+        onTouchCancel={handleChatContainerPressEnd}
+        onMouseUp={handleChatContainerPressEnd}
+        onMouseLeave={handleChatContainerPressEnd}
       >
         <header className={cn(
           "flex flex-shrink-0 items-center justify-between border-b shadow-md",
@@ -708,20 +807,8 @@ export default function ChatPage() {
             "relative flex-1 overflow-y-auto p-3 pb-1 sm:p-4",
             "pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]",
             isMobile && isKeyboardOpen ? "pb-4" : "",
-            "relative z-20",
-            // Prevent keyboard popup and text selection globally
-            "select-none"
+            "relative z-20"
           )}
-          onTouchStart={(e) => {
-            // Only prevent default if touching the container directly
-            if (e.target === chatContainerRef.current) {
-              e.preventDefault();
-              // Ensure any focused elements are blurred
-              if (document.activeElement instanceof HTMLElement) {
-                document.activeElement.blur();
-              }
-            }
-          }}
         >
           <ChatBackground role={role} />
           <div className="relative z-10 space-y-0.5 pb-1"> {/* Remove touch-auto since we're handling touch differently */}
@@ -776,32 +863,31 @@ export default function ChatPage() {
                       />
                     </div>
                   ) : (
-                    <MessageContextMenu
-                      onAddSeparator={() => handleAddSeparatorAtMessage(index)}
-                      onDelete={message.sender === role ? () => handleDeleteMessage(message.clientId || message.id) : undefined}
-                      isOwnMessage={message.sender === role}
-                      role={role}
+                    <div 
+                      data-message-id={message.id} 
+                      data-sender={message.sender}
+                      className="transition-all duration-300 ease-in-out"
                     >
-                      <div 
-                        data-message-id={message.id} 
-                        data-sender={message.sender}
-                        className="transition-all duration-300 ease-in-out"
-                      >
-                        <ChatMessage 
-                          message={message} 
-                          currentUser={role} 
-                          onImageClick={setViewingImage}
-                          onDeleteMessage={() => handleDeleteMessage(message.clientId || message.id)} 
-                          isLastSeenByOther={index === validLastSeenIndex} 
-                          userRole={role}
-                        />
-                      </div>
-                    </MessageContextMenu>
+                      <ChatMessage 
+                        message={message} 
+                        currentUser={role} 
+                        onImageClick={setViewingImage}
+                        onDeleteMessage={() => handleDeleteMessage(message.clientId || message.id)} 
+                        isLastSeenByOther={index === validLastSeenIndex} 
+                        userRole={role}
+                      />
+                    </div>
                   )}
                   
-                  {/* Remove the triple-click area since we now have context menu */}
+                  {/* Area between messages for triple-click */}
                   {index < messages.length - 1 && (
-                    <div className="h-0.5 w-full" />
+                    <div 
+                      className={cn(
+                        "h-0.5 w-full cursor-pointer transition-colors duration-200",
+                        clickCount > 0 && insertPosition === index ? "bg-muted/40 hover:bg-muted/50" : "hover:bg-muted/30"
+                      )}
+                      onClick={(e) => handleClickArea(e, index)}
+                    />
                   )}
                 </React.Fragment>
               ));
@@ -831,6 +917,32 @@ export default function ChatPage() {
             )}
             <div ref={messagesEndRef} className="h-0.5" />
           </div>
+          
+          {/* Floating Separator Button */}
+          {showSeparatorButton && (
+            <div 
+              className="absolute z-30 animate-in fade-in zoom-in-95 duration-200"
+              style={{
+                top: longPressPosition.y,
+                left: longPressPosition.x,
+                transform: 'translate(-50%, -50%)'
+              }}
+              onClick={handleSeparatorButtonClick}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                handleSeparatorButtonClick(e);
+              }}
+            >
+              <div className={cn(
+                "flex items-center gap-2 rounded-full py-2 px-4 shadow-lg",
+                role === 'akash' ? "bg-blue-600" : "bg-primary",
+                "text-white"
+              )}>
+                <Scissors size={16} />
+                <span className="text-sm font-medium">Add Separator</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className={cn(
