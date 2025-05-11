@@ -12,7 +12,8 @@ import {
   BellOff,
   Bell,
   SendHorizontal,
-  ImageIcon
+  ImageIcon,
+  Plus
 } from "lucide-react"
 import ChatMessage from "@/components/chat-message"
 import ImageViewer from "@/components/image-viewer"
@@ -82,7 +83,8 @@ export default function ChatPage() {
   const [showMediaOptions, setShowMediaOptions] = useState(false);
   const [showMuteAnimation, setShowMuteAnimation] = useState(false);
   const [isMuting, setIsMuting] = useState(false);
-  const [lastBgTap, setLastBgTap] = useState<number>(0);
+  const [showDivider, setShowDivider] = useState<number | null>(null);
+  const dividerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Detect mobile devices
   useEffect(() => {
@@ -466,44 +468,6 @@ export default function ChatPage() {
     }
   }, [newMessage]); // Re-run when message changes
 
-  // Clear click count after delay
-  const handleClickArea = (e: React.MouseEvent, index: number) => {
-    e.stopPropagation();
-    
-    // Update click position
-    setClickPosition({
-      top: e.clientY,
-      left: e.clientX
-    });
-    
-    // Set insert position between current and next message
-    setInsertPosition(index);
-    
-    // Increment click count
-    setClickCount(prev => prev + 1);
-    
-    // Clear any existing timeout
-    if (clickTimeout) {
-      clearTimeout(clickTimeout);
-    }
-    
-    // Set new timeout to reset click count
-    const timeout = setTimeout(() => {
-      setClickCount(0);
-    }, 500); // Reset after 500ms if no more clicks
-    
-    setClickTimeout(timeout);
-    
-    // Check for triple click
-    if (clickCount === 2) { // This will make it 3 with the increment above
-      setSeparatorDialogOpen(true);
-      setClickCount(0);
-      if (clickTimeout) {
-        clearTimeout(clickTimeout);
-      }
-    }
-  };
-  
   // Handle day separator insertion
   const handleAddDaySeparator = (text: string) => {
     if (insertPosition === null) return;
@@ -520,34 +484,26 @@ export default function ChatPage() {
     // Insert the day separator locally
     const updatedMessages = [...messages];
     updatedMessages.splice(insertPosition + 1, 0, newSeparator);
-    
-    // Update messages in state directly since this is a UI-only feature
-    // and doesn't need to be synced with other clients
     setMessages(updatedMessages);
   };
   
   // Handle separator deletion
   const handleDeleteSeparator = (separatorId: string) => {
-    // Filter out the separator with the specified ID
     const updatedMessages = messages.filter(message => message.id !== separatorId);
     setMessages(updatedMessages);
   };
   
   // Handle separator dragging
   const handleSeparatorDrag = (separatorId: string, clientY: number) => {
-    // Find the separator index
     const separatorIndex = messages.findIndex(msg => msg.id === separatorId);
     if (separatorIndex === -1) return;
     
-    // Get the separator element
     const separatorElement = document.querySelector(`[data-separator-id="${separatorId}"]`);
     if (!separatorElement) return;
     
-    // Find the new position based on clientY
     const messageElements = Array.from(document.querySelectorAll('[data-message-id]'));
     let targetIndex = -1;
     
-    // Find the message element below the dragged position
     for (let i = 0; i < messageElements.length; i++) {
       const rect = messageElements[i].getBoundingClientRect();
       const midpoint = rect.top + rect.height / 2;
@@ -558,12 +514,10 @@ export default function ChatPage() {
       }
     }
     
-    // If we didn't find a target, place at end
     if (targetIndex === -1) {
       targetIndex = messages.length - 1;
     }
     
-    // Don't move if the position didn't change or if it would be adjacent to another separator
     if (
       targetIndex === separatorIndex || 
       targetIndex === separatorIndex - 1 || 
@@ -573,25 +527,38 @@ export default function ChatPage() {
       return;
     }
     
-    // Move the separator
     const updatedMessages = [...messages];
     const [removedSeparator] = updatedMessages.splice(separatorIndex, 1);
-    
-    // Insert at the new position
     const insertAt = targetIndex > separatorIndex ? targetIndex - 1 : targetIndex;
     updatedMessages.splice(insertAt, 0, removedSeparator);
-    
     setMessages(updatedMessages);
   };
 
-  // Clean up on unmount
+  // Handle press and hold for separator
+  const handleDividerMouseDown = (index: number) => {
+    setShowDivider(index);
+    dividerTimeoutRef.current = setTimeout(() => {
+      setInsertPosition(index);
+      setSeparatorDialogOpen(true);
+      setShowDivider(null);
+    }, 500); // 500ms press and hold
+  };
+
+  const handleDividerMouseUp = () => {
+    if (dividerTimeoutRef.current) {
+      clearTimeout(dividerTimeoutRef.current);
+    }
+    setShowDivider(null);
+  };
+
+  // Clean up timeout on unmount
   useEffect(() => {
     return () => {
-      if (clickTimeout) {
-        clearTimeout(clickTimeout);
+      if (dividerTimeoutRef.current) {
+        clearTimeout(dividerTimeoutRef.current);
       }
     };
-  }, [clickTimeout]);
+  }, []);
 
   // Handle touch start on chat container
   const handleChatContainerTouch = (e: React.TouchEvent) => {
@@ -612,43 +579,6 @@ export default function ChatPage() {
     setTimeout(() => {
       setShowMuteAnimation(false);
     }, 800);
-  };
-
-  // Handle background double-click/tap to add day separator
-  const handleBackgroundClick = (clientY: number) => {
-    // Find position to insert based on Y coordinate
-    const messageElements = Array.from(document.querySelectorAll('[data-message-id]')) as HTMLElement[];
-    let targetIndex = messages.length - 1; // default append at end
-    for (let i = 0; i < messageElements.length; i++) {
-      const rect = messageElements[i].getBoundingClientRect();
-      if (clientY < rect.top) {
-        targetIndex = messages.findIndex(msg => msg.id === messageElements[i].getAttribute('data-message-id')) - 1;
-        break;
-      }
-    }
-    if (targetIndex < -1) targetIndex = -1;
-    setInsertPosition(targetIndex);
-    setSeparatorDialogOpen(true);
-  };
-
-  // Background click handler (desktop)
-  const onBgDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Only if click target is the container itself (not messages)
-    if (e.target !== chatContainerRef.current) return;
-    handleBackgroundClick(e.clientY);
-  };
-
-  // Background touch handler (mobile double-tap)
-  const onBgTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.target !== chatContainerRef.current) return;
-    const currentTime = Date.now();
-    if (currentTime - lastBgTap < 350) {
-      // Double tap detected
-      handleBackgroundClick(e.touches[0].clientY);
-      setLastBgTap(0);
-    } else {
-      setLastBgTap(currentTime);
-    }
   };
 
   return (
@@ -744,8 +674,6 @@ export default function ChatPage() {
 
         <div 
           ref={chatContainerRef} 
-          onDoubleClick={onBgDoubleClick}
-          onTouchStart={onBgTouchStart}
           className={cn(
             "relative flex-1 overflow-y-auto p-3 pb-1 sm:p-4",
             "pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]",
@@ -822,15 +750,30 @@ export default function ChatPage() {
                     </div>
                   )}
                   
-                  {/* Area between messages for triple-click */}
+                  {/* Area between messages for press and hold */}
                   {index < messages.length - 1 && (
                     <div 
                       className={cn(
-                        "h-0.5 w-full cursor-pointer transition-colors duration-200",
-                        clickCount > 0 && insertPosition === index ? "bg-muted/40 hover:bg-muted/50" : "hover:bg-muted/30"
+                        "relative h-0.5 w-full cursor-pointer transition-all duration-200",
+                        showDivider === index ? "bg-muted" : "hover:bg-muted/30"
                       )}
-                      onClick={(e) => handleClickArea(e, index)}
-                    />
+                      onMouseDown={() => handleDividerMouseDown(index)}
+                      onMouseUp={handleDividerMouseUp}
+                      onMouseLeave={handleDividerMouseUp}
+                      onTouchStart={() => handleDividerMouseDown(index)}
+                      onTouchEnd={handleDividerMouseUp}
+                    >
+                      {showDivider === index && (
+                        <div className="absolute inset-0 flex items-center justify-center -mt-3">
+                          <div className={cn(
+                            "rounded-full p-1 transition-colors duration-200",
+                            role === 'akash' ? "bg-gray-800" : "bg-muted",
+                          )}>
+                            <Plus size={16} className="text-muted-foreground" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </React.Fragment>
               ));
