@@ -12,9 +12,7 @@ import {
   BellOff,
   Bell,
   SendHorizontal,
-  ImageIcon,
-  ChevronDown,
-  Scissors
+  ImageIcon
 } from "lucide-react"
 import ChatMessage from "@/components/chat-message"
 import ImageViewer from "@/components/image-viewer"
@@ -84,9 +82,7 @@ export default function ChatPage() {
   const [showMediaOptions, setShowMediaOptions] = useState(false);
   const [showMuteAnimation, setShowMuteAnimation] = useState(false);
   const [isMuting, setIsMuting] = useState(false);
-  const [showSeparatorButton, setShowSeparatorButton] = useState(false);
-  const [longPressPosition, setLongPressPosition] = useState({ x: 0, y: 0 });
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [lastBgTap, setLastBgTap] = useState<number>(0);
 
   // Detect mobile devices
   useEffect(() => {
@@ -594,10 +590,6 @@ export default function ChatPage() {
       if (clickTimeout) {
         clearTimeout(clickTimeout);
       }
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = null;
-      }
     };
   }, [clickTimeout]);
 
@@ -622,84 +614,41 @@ export default function ChatPage() {
     }, 800);
   };
 
-  // Handle long press on chat container
-  const handleChatContainerLongPress = (e: React.TouchEvent | React.MouseEvent) => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-    }
-    
-    // Get the client coordinates from either touch or mouse event
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    
-    // Set timer for long press (700ms)
-    longPressTimerRef.current = setTimeout(() => {
-      // Calculate nearest message index based on position
-      let targetIndex = 0;
-      
-      if (chatContainerRef.current) {
-        const messageElements = Array.from(chatContainerRef.current.querySelectorAll('[data-message-id]'));
-        
-        // Find the message closest to the press position
-        let closestDistance = Infinity;
-        let closestIndex = 0;
-        
-        messageElements.forEach((element, index) => {
-          const rect = element.getBoundingClientRect();
-          const distance = Math.abs(rect.top + rect.height/2 - clientY);
-          
-          if (distance < closestDistance) {
-            closestDistance = distance;
-            closestIndex = index;
-          }
-        });
-        
-        targetIndex = closestIndex;
+  // Handle background double-click/tap to add day separator
+  const handleBackgroundClick = (clientY: number) => {
+    // Find position to insert based on Y coordinate
+    const messageElements = Array.from(document.querySelectorAll('[data-message-id]')) as HTMLElement[];
+    let targetIndex = messages.length - 1; // default append at end
+    for (let i = 0; i < messageElements.length; i++) {
+      const rect = messageElements[i].getBoundingClientRect();
+      if (clientY < rect.top) {
+        targetIndex = messages.findIndex(msg => msg.id === messageElements[i].getAttribute('data-message-id')) - 1;
+        break;
       }
-      
-      // Store the insert position
-      setInsertPosition(targetIndex);
-      
-      // Store position for the button
-      setLongPressPosition({ x: clientX, y: clientY });
-      setShowSeparatorButton(true);
-      
-      // Add haptic feedback if available
-      if (navigator.vibrate) {
-        navigator.vibrate(50);
-      }
-    }, 700);
-  };
-  
-  const handleChatContainerPressEnd = () => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
     }
-  };
-  
-  // Close separator button when clicking elsewhere
-  useEffect(() => {
-    if (!showSeparatorButton) return;
-    
-    const handleClickOutside = () => {
-      setShowSeparatorButton(false);
-    };
-    
-    document.addEventListener('click', handleClickOutside);
-    document.addEventListener('touchstart', handleClickOutside, { passive: false });
-    
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
-    };
-  }, [showSeparatorButton]);
-  
-  // Open separator dialog from floating button
-  const handleSeparatorButtonClick = (e: React.MouseEvent | React.TouchEvent) => {
-    e.stopPropagation(); // Prevent closing the button immediately
-    setShowSeparatorButton(false);
+    if (targetIndex < -1) targetIndex = -1;
+    setInsertPosition(targetIndex);
     setSeparatorDialogOpen(true);
+  };
+
+  // Background click handler (desktop)
+  const onBgDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Only if click target is the container itself (not messages)
+    if (e.target !== chatContainerRef.current) return;
+    handleBackgroundClick(e.clientY);
+  };
+
+  // Background touch handler (mobile double-tap)
+  const onBgTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.target !== chatContainerRef.current) return;
+    const currentTime = Date.now();
+    if (currentTime - lastBgTap < 350) {
+      // Double tap detected
+      handleBackgroundClick(e.touches[0].clientY);
+      setLastBgTap(0);
+    } else {
+      setLastBgTap(currentTime);
+    }
   };
 
   return (
@@ -719,15 +668,7 @@ export default function ChatPage() {
         "transition-opacity duration-300",
         isMuted ? "opacity-60" : "opacity-100"
       )}
-        onTouchStart={(e) => {
-          handleChatContainerTouch(e);
-          handleChatContainerLongPress(e);
-        }}
-        onMouseDown={handleChatContainerLongPress}
-        onTouchEnd={handleChatContainerPressEnd}
-        onTouchCancel={handleChatContainerPressEnd}
-        onMouseUp={handleChatContainerPressEnd}
-        onMouseLeave={handleChatContainerPressEnd}
+        onTouchStart={handleChatContainerTouch}
       >
         <header className={cn(
           "flex flex-shrink-0 items-center justify-between border-b shadow-md",
@@ -803,6 +744,8 @@ export default function ChatPage() {
 
         <div 
           ref={chatContainerRef} 
+          onDoubleClick={onBgDoubleClick}
+          onTouchStart={onBgTouchStart}
           className={cn(
             "relative flex-1 overflow-y-auto p-3 pb-1 sm:p-4",
             "pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]",
@@ -917,32 +860,6 @@ export default function ChatPage() {
             )}
             <div ref={messagesEndRef} className="h-0.5" />
           </div>
-          
-          {/* Floating Separator Button */}
-          {showSeparatorButton && (
-            <div 
-              className="absolute z-30 animate-in fade-in zoom-in-95 duration-200"
-              style={{
-                top: longPressPosition.y,
-                left: longPressPosition.x,
-                transform: 'translate(-50%, -50%)'
-              }}
-              onClick={handleSeparatorButtonClick}
-              onTouchEnd={(e) => {
-                e.stopPropagation();
-                handleSeparatorButtonClick(e);
-              }}
-            >
-              <div className={cn(
-                "flex items-center gap-2 rounded-full py-2 px-4 shadow-lg",
-                role === 'akash' ? "bg-blue-600" : "bg-primary",
-                "text-white"
-              )}>
-                <Scissors size={16} />
-                <span className="text-sm font-medium">Add Separator</span>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className={cn(
