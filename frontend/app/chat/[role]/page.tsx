@@ -26,6 +26,7 @@ import DaySeparator from "@/components/day-separator"
 import DaySeparatorDialog from "@/components/day-separator-dialog"
 import { type Message } from "@/lib/chat-data"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import MuteAnimation from "@/components/mute-animation"
 
 type ValidRole = 'akash' | 'divyangini'
 
@@ -79,6 +80,8 @@ export default function ChatPage() {
   const [insertPosition, setInsertPosition] = useState<number | null>(null);
   const [separatorDialogOpen, setSeparatorDialogOpen] = useState(false);
   const [showMediaOptions, setShowMediaOptions] = useState(false);
+  const [showMuteAnimation, setShowMuteAnimation] = useState(false);
+  const [isMuting, setIsMuting] = useState(false);
 
   // Detect mobile devices
   useEffect(() => {
@@ -597,6 +600,19 @@ export default function ChatPage() {
     }
   };
 
+  // Handle mute toggle with animation
+  const handleMuteToggle = () => {
+    const newMuteState = !isMuted;
+    setIsMuting(newMuteState);
+    setShowMuteAnimation(true);
+    setIsMuted(newMuteState);
+    
+    // Hide animation after delay
+    setTimeout(() => {
+      setShowMuteAnimation(false);
+    }, 800);
+  };
+
   return (
     <div className="flex h-dvh flex-col bg-background">
       {/* Add overlay div */}
@@ -604,6 +620,11 @@ export default function ChatPage() {
         "fixed inset-0 bg-black/20 transition-opacity duration-300 z-10 pointer-events-none",
         isMuted ? "opacity-100" : "opacity-0"
       )} />
+      <MuteAnimation 
+        show={showMuteAnimation} 
+        role={role}
+        isMuting={isMuting}
+      />
       <div className={cn(
         "flex flex-col h-full relative z-20",
         "transition-opacity duration-300",
@@ -660,19 +681,25 @@ export default function ChatPage() {
               variant="ghost"
               size="icon" 
               className={cn(
-                "rounded-full p-2 transition-none !duration-0 !bg-transparent",
-                "mr-2",
+                "rounded-full p-2 transition-none !duration-0 !bg-transparent relative",
                 role === 'akash' 
-                  ? isMuted 
-                    ? "!bg-red-800 !text-white hover:!bg-red-800 hover:!text-white active:!bg-red-800" 
-                    : "!text-gray-300 hover:!text-gray-300 hover:!bg-transparent active:!bg-transparent" 
-                  : isMuted 
-                    ? "!bg-red-600 !text-white hover:!bg-red-600 hover:!text-white active:!bg-red-600" 
-                    : "!text-foreground/80 hover:!text-foreground/80 hover:!bg-transparent active:!bg-transparent"
+                  ? "!text-gray-300 hover:!text-gray-300 hover:!bg-transparent active:!bg-transparent"
+                  : "!text-foreground/80 hover:!text-foreground/80 hover:!bg-transparent active:!bg-transparent"
               )}
-              onClick={() => setIsMuted(!isMuted)}
+              onClick={handleMuteToggle}
             >
-              {isMuted ? <BellOff size={22} /> : <Bell size={22} />}
+              <Bell 
+                size={22} 
+                className={cn(
+                  "transition-opacity duration-300",
+                  isMuted ? "opacity-50" : "opacity-100"
+                )} 
+              />
+              {isMuted && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-[1.5px] h-7 bg-red-500 rotate-45 transform origin-center" />
+                </div>
+              )}
             </Button>
           </div>
         </header>
