@@ -27,6 +27,7 @@ import DaySeparatorDialog from "@/components/day-separator-dialog"
 import { type Message } from "@/lib/chat-data"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import MuteAnimation from "@/components/mute-animation"
+import MessageContextMenu from "@/components/message-context-menu"
 
 type ValidRole = 'akash' | 'divyangini'
 
@@ -613,6 +614,12 @@ export default function ChatPage() {
     }, 800);
   };
 
+  // Handle separator addition from context menu
+  const handleAddSeparatorAtMessage = (index: number) => {
+    setInsertPosition(index);
+    setSeparatorDialogOpen(true);
+  };
+
   return (
     <div className="flex h-dvh flex-col bg-background">
       {/* Add overlay div */}
@@ -766,31 +773,32 @@ export default function ChatPage() {
                       />
                     </div>
                   ) : (
-                    <div 
-                      data-message-id={message.id} 
-                      data-sender={message.sender}
-                      className="transition-all duration-300 ease-in-out"
+                    <MessageContextMenu
+                      onAddSeparator={() => handleAddSeparatorAtMessage(index)}
+                      onDelete={message.sender === role ? () => handleDeleteMessage(message.clientId || message.id) : undefined}
+                      isOwnMessage={message.sender === role}
+                      role={role}
                     >
-                      <ChatMessage 
-                        message={message} 
-                        currentUser={role} 
-                        onImageClick={setViewingImage}
-                        onDeleteMessage={() => handleDeleteMessage(message.clientId || message.id)} 
-                        isLastSeenByOther={index === validLastSeenIndex} 
-                        userRole={role}
-                      />
-                    </div>
+                      <div 
+                        data-message-id={message.id} 
+                        data-sender={message.sender}
+                        className="transition-all duration-300 ease-in-out"
+                      >
+                        <ChatMessage 
+                          message={message} 
+                          currentUser={role} 
+                          onImageClick={setViewingImage}
+                          onDeleteMessage={() => handleDeleteMessage(message.clientId || message.id)} 
+                          isLastSeenByOther={index === validLastSeenIndex} 
+                          userRole={role}
+                        />
+                      </div>
+                    </MessageContextMenu>
                   )}
                   
-                  {/* Area between messages for triple-click */}
+                  {/* Remove the triple-click area since we now have context menu */}
                   {index < messages.length - 1 && (
-                    <div 
-                      className={cn(
-                        "h-0.5 w-full cursor-pointer transition-colors duration-200",
-                        clickCount > 0 && insertPosition === index ? "bg-muted/40 hover:bg-muted/50" : "hover:bg-muted/30"
-                      )}
-                      onClick={(e) => handleClickArea(e, index)}
-                    />
+                    <div className="h-0.5 w-full" />
                   )}
                 </React.Fragment>
               ));
