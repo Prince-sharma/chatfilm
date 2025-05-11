@@ -23,10 +23,31 @@ export default function MessageContextMenu({
   isOwnMessage,
   role = 'divyangini'
 }: MessageContextMenuProps) {
+  // Prevent text selection and keyboard popup
+  const preventSelectionAndKeyboard = (e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Remove any existing selection
+    window.getSelection()?.removeAllRanges();
+    
+    // Ensure any focused elements are blurred
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  };
+
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
-        {children}
+      <ContextMenuTrigger 
+        asChild
+        // Prevent default touch behavior
+        onTouchStart={preventSelectionAndKeyboard}
+        onContextMenu={preventSelectionAndKeyboard}
+      >
+        <div className="select-none touch-none">
+          {children}
+        </div>
       </ContextMenuTrigger>
       <ContextMenuContent 
         className={cn(
