@@ -593,14 +593,6 @@ export default function ChatPage() {
     };
   }, [clickTimeout]);
 
-  // Handle touch start on chat container
-  const handleChatContainerTouch = (e: React.TouchEvent) => {
-    // If the touch target is the chat container itself (not a message or interactive element)
-    if (e.target === chatContainerRef.current) {
-      e.preventDefault(); // Prevent keyboard popup
-    }
-  };
-
   // Handle mute toggle with animation
   const handleMuteToggle = () => {
     const newMuteState = !isMuted;
@@ -637,7 +629,6 @@ export default function ChatPage() {
         "transition-opacity duration-300",
         isMuted ? "opacity-60" : "opacity-100"
       )}
-        onTouchStart={handleChatContainerTouch}
       >
         <header className={cn(
           "flex flex-shrink-0 items-center justify-between border-b shadow-md",
@@ -717,8 +708,20 @@ export default function ChatPage() {
             "relative flex-1 overflow-y-auto p-3 pb-1 sm:p-4",
             "pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]",
             isMobile && isKeyboardOpen ? "pb-4" : "",
-            "relative z-20"
+            "relative z-20",
+            // Prevent keyboard popup and text selection globally
+            "select-none"
           )}
+          onTouchStart={(e) => {
+            // Only prevent default if touching the container directly
+            if (e.target === chatContainerRef.current) {
+              e.preventDefault();
+              // Ensure any focused elements are blurred
+              if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+              }
+            }
+          }}
         >
           <ChatBackground role={role} />
           <div className="relative z-10 space-y-0.5 pb-1"> {/* Remove touch-auto since we're handling touch differently */}
