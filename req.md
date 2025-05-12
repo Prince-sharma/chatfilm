@@ -1,3 +1,7 @@
+clicking the small divider between the chat for adding seperator is not the best possible interaction and it is difficult to do so on iphones. Can you suggest some other interaction to have the ability to add this seperator? make sure the this integraction is unique and dosen't affect any of the current interactions / behaviour 
+
+use the day seperator dailog. and make sure adding seperator works for both user chat and for other person chts and once the seperator is added it shows up and works as it is now 
+
 When muting a conversations, the date seperators added are gettig diappeared. Also the date seperators are not getting retained when i go back and choose the other character. 
 
 The date seperator should be added in sync with both the character conversations, so when we add a date seperator in on chat screen the same should be added in the other charcatter screen in the same place and it should persist as the other messages, even if the user goes back and opens the chat again.

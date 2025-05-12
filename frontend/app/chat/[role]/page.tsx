@@ -778,8 +778,10 @@ export default function ChatPage() {
                 </React.Fragment>
               ));
             })()}
+            
+            {/* Typing indicator */}
             {isTyping && (
-              <div className={`flex justify-start animate-pulse absolute bottom-full mb-2 left-2`}>
+              <div className="flex justify-start animate-pulse mb-2">
                 <div className={cn(
                   "ml-2 rounded-full px-4 py-2 shadow-md",
                   role === 'akash' ? "bg-gray-800" : "bg-secondary"
@@ -801,6 +803,7 @@ export default function ChatPage() {
                 </div>
               </div>
             )}
+            
             <div ref={messagesEndRef} className="h-0.5" />
           </div>
         </div>
