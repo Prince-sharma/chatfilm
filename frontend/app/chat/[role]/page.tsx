@@ -682,104 +682,106 @@ export default function ChatPage() {
           )}
         >
           <ChatBackground role={role} />
-          <div className="relative z-10 space-y-0.5 pb-1"> {/* Remove touch-auto since we're handling touch differently */}
-            {(() => {
-              let lastSeenIndex = -1;
-              let lastUserMessageIndex = -1;
-              let lastOtherPersonMessageIndex = -1;
-              
-              // First, find the last message from the current user
-              for (let i = messages.length - 1; i >= 0; i--) {
-                if (messages[i].sender === role && messages[i].type !== 'day-separator') {
-                  lastUserMessageIndex = i;
-                  break;
+          <div className="relative z-10 space-y-0.5 pb-1 flex flex-col min-h-0">
+            <div className="flex-1">
+              {(() => {
+                let lastSeenIndex = -1;
+                let lastUserMessageIndex = -1;
+                let lastOtherPersonMessageIndex = -1;
+                
+                // First, find the last message from the current user
+                for (let i = messages.length - 1; i >= 0; i--) {
+                  if (messages[i].sender === role && messages[i].type !== 'day-separator') {
+                    lastUserMessageIndex = i;
+                    break;
+                  }
                 }
-              }
-              
-              // Find the last message from the other person
-              for (let i = messages.length - 1; i >= 0; i--) {
-                if (messages[i].sender === otherPerson && messages[i].type !== 'day-separator') {
-                  lastOtherPersonMessageIndex = i;
-                  break;
+                
+                // Find the last message from the other person
+                for (let i = messages.length - 1; i >= 0; i--) {
+                  if (messages[i].sender === otherPerson && messages[i].type !== 'day-separator') {
+                    lastOtherPersonMessageIndex = i;
+                    break;
+                  }
                 }
-              }
-              
-              // Then find the last seen message from the current user
-              for (let i = messages.length - 1; i >= 0; i--) {
-                if (messages[i].sender === role && messages[i].seen && messages[i].type !== 'day-separator') {
-                  lastSeenIndex = i;
-                  break;
+                
+                // Then find the last seen message from the current user
+                for (let i = messages.length - 1; i >= 0; i--) {
+                  if (messages[i].sender === role && messages[i].seen && messages[i].type !== 'day-separator') {
+                    lastSeenIndex = i;
+                    break;
+                  }
                 }
-              }
-              
-              // Only show "Seen" if:
-              // 1. The last seen message is also the last message from the user in the conversation
-              // 2. There are no messages from the other person after this seen message
-              const validLastSeenIndex = 
-                lastSeenIndex === lastUserMessageIndex && 
-                (lastOtherPersonMessageIndex === -1 || lastOtherPersonMessageIndex < lastSeenIndex) 
-                  ? lastSeenIndex 
-                  : -1;
+                
+                // Only show "Seen" if:
+                // 1. The last seen message is also the last message from the user in the conversation
+                // 2. There are no messages from the other person after this seen message
+                const validLastSeenIndex = 
+                  lastSeenIndex === lastUserMessageIndex && 
+                  (lastOtherPersonMessageIndex === -1 || lastOtherPersonMessageIndex < lastSeenIndex) 
+                    ? lastSeenIndex 
+                    : -1;
 
-              return messages.map((message, index) => (
-                <React.Fragment key={message.clientId || message.id}>
-                  {/* Render based on message type */}
-                  {message.type === 'day-separator' ? (
-                    <div data-separator-id={message.id} className="relative z-20">
-                      <DaySeparator 
-                        text={message.content} 
-                        onDelete={() => handleDeleteSeparator(message.id)}
-                        onDragEnd={(clientY) => handleSeparatorDrag(message.id, clientY)}
-                        userRole={role}
-                      />
-                    </div>
-                  ) : (
-                    <div 
-                      data-message-id={message.id} 
-                      data-sender={message.sender}
-                      className="transition-all duration-300 ease-in-out"
-                    >
-                      <ChatMessage 
-                        message={message} 
-                        currentUser={role} 
-                        onImageClick={setViewingImage}
-                        onDeleteMessage={() => handleDeleteMessage(message.clientId || message.id)} 
-                        isLastSeenByOther={index === validLastSeenIndex} 
-                        userRole={role}
-                      />
-                    </div>
-                  )}
-                  
-                  {/* Area between messages for press and hold */}
-                  {index < messages.length - 1 && (
-                    <div 
-                      className={cn(
-                        "relative h-0.5 w-full cursor-pointer transition-all duration-200",
-                        showDivider === index ? "bg-muted" : "hover:bg-muted/30"
-                      )}
-                      onMouseDown={() => handleDividerMouseDown(index)}
-                      onMouseUp={handleDividerMouseUp}
-                      onMouseLeave={handleDividerMouseUp}
-                      onTouchStart={() => handleDividerMouseDown(index)}
-                      onTouchEnd={handleDividerMouseUp}
-                    >
-                      {showDivider === index && (
-                        <div className="absolute inset-0 flex items-center justify-center -mt-3">
-                          <div className={cn(
-                            "rounded-full p-1 transition-colors duration-200",
-                            role === 'akash' ? "bg-gray-800" : "bg-muted",
-                          )}>
-                            <Plus size={16} className="text-muted-foreground" />
+                return messages.map((message, index) => (
+                  <React.Fragment key={message.clientId || message.id}>
+                    {/* Render based on message type */}
+                    {message.type === 'day-separator' ? (
+                      <div data-separator-id={message.id} className="relative z-20">
+                        <DaySeparator 
+                          text={message.content} 
+                          onDelete={() => handleDeleteSeparator(message.id)}
+                          onDragEnd={(clientY) => handleSeparatorDrag(message.id, clientY)}
+                          userRole={role}
+                        />
+                      </div>
+                    ) : (
+                      <div 
+                        data-message-id={message.id} 
+                        data-sender={message.sender}
+                        className="transition-all duration-300 ease-in-out"
+                      >
+                        <ChatMessage 
+                          message={message} 
+                          currentUser={role} 
+                          onImageClick={setViewingImage}
+                          onDeleteMessage={() => handleDeleteMessage(message.clientId || message.id)} 
+                          isLastSeenByOther={index === validLastSeenIndex} 
+                          userRole={role}
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Area between messages for press and hold */}
+                    {index < messages.length - 1 && (
+                      <div 
+                        className={cn(
+                          "relative h-0.5 w-full cursor-pointer transition-all duration-200",
+                          showDivider === index ? "bg-muted" : "hover:bg-muted/30"
+                        )}
+                        onMouseDown={() => handleDividerMouseDown(index)}
+                        onMouseUp={handleDividerMouseUp}
+                        onMouseLeave={handleDividerMouseUp}
+                        onTouchStart={() => handleDividerMouseDown(index)}
+                        onTouchEnd={handleDividerMouseUp}
+                      >
+                        {showDivider === index && (
+                          <div className="absolute inset-0 flex items-center justify-center -mt-3">
+                            <div className={cn(
+                              "rounded-full p-1 transition-colors duration-200",
+                              role === 'akash' ? "bg-gray-800" : "bg-muted",
+                            )}>
+                              <Plus size={16} className="text-muted-foreground" />
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </React.Fragment>
-              ));
-            })()}
+                        )}
+                      </div>
+                    )}
+                  </React.Fragment>
+                ));
+              })()}
+            </div>
             {isTyping && (
-              <div className={`flex justify-start animate-pulse`}>
+              <div className={`flex justify-start animate-pulse mb-2`}>
                 <div className={cn(
                   "ml-2 rounded-full px-4 py-2 shadow-md",
                   role === 'akash' ? "bg-gray-800" : "bg-secondary"
